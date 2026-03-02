@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bellerbys — SAPM Grades &amp; Offers</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#fef2f1',
+              100: '#fde3e1',
+              200: '#fbcbc8',
+              300: '#f7a4a0',
+              400: '#f17470',
+              500: '#e5463f',
+              600: '#cc2016',
+              700: '#aa1a0f',
+              800: '#8c180e',
+              900: '#751912',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    /* Ensure tab underline active state works with Tailwind */
+    .tab-active { color: #cc2016 !important; border-bottom-color: #cc2016 !important; }
+    .tab-inactive { color: #64748b; border-bottom-color: transparent; }
+    .tab-inactive:hover { color: #334155; }
+    /* Pathway tables: use full viewport width so all columns fit without horizontal scroll */
+    .pathway-table-fullwidth { width: 100vw; max-width: 100vw; margin-left: calc(50% - 50vw); }
+    /* Tighter padding so more columns fit on screen */
+    .pathway-table-compact th,
+    .pathway-table-compact td { padding: 0.375rem 0.5rem; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900 antialiased">
+
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm h-20">
+    <div class="max-w-screen-2xl mx-auto px-6 h-full flex items-center justify-between gap-6">
+      <div class="flex items-center gap-5 min-w-0">
+        <img src="/static/bellerbys-logo.png" alt="Bellerbys Global" class="h-12 w-auto flex-shrink-0" />
+        <div class="hidden sm:block h-8 w-px bg-slate-200 flex-shrink-0"></div>
+        <div class="hidden sm:block min-w-0">
+          <div class="text-base font-semibold text-slate-800 leading-tight">Bellerbys GBA 2025–26</div>
+          <div class="text-sm text-slate-500 leading-tight mt-0.5">Progression Status</div>
+        </div>
+      </div>
+      <div class="relative flex items-center flex-shrink-0">
+        <input type="file" id="pdfFile" accept=".pdf,.png,.jpg,.jpeg" multiple class="hidden" />
+        <span id="uploadStatus" class="absolute right-full mr-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 whitespace-nowrap hidden pointer-events-none"></span>
+        <button type="button" id="uploadBtn"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-70 disabled:cursor-wait text-white text-sm font-medium rounded-lg transition-colors duration-150 shadow-sm">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Upload Offer</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Tab Navigation ────────────────────────────────────────────── -->
+  <div class="bg-white border-b border-slate-200">
+    <div class="max-w-screen-2xl mx-auto px-6">
+      <nav class="flex -mb-px" id="tabNav">
+        <!-- Pathway tabs: set SHOW_PATHWAY_TABS = true in script below to show Business Mgmt, Media, Computing -->
+        <button type="button" data-pathway="business-mgmt" id="tab-business-mgmt"
+          class="tab-btn pathway-tab-optional tab-active px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-150">
+          Business Mgmt
+        </button>
+        <button type="button" data-pathway="media" id="tab-media"
+          class="tab-btn pathway-tab-optional tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-150">
+          Media
+        </button>
+        <button type="button" data-pathway="computing" id="tab-computing"
+          class="tab-btn pathway-tab-optional tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-150">
+          Computing
+        </button>
+        <button type="button" data-pathway="analytics" id="tab-analytics"
+          class="tab-btn tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-150">
+          Analytics
+        </button>
+        <button type="button" data-pathway="students"
+          class="tab-btn tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-150">
+          Students
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ── Content ───────────────────────────────────────────────────── -->
+  <main class="max-w-screen-2xl mx-auto px-6 py-6">
+
+    <!-- Shared loading spinner template (cloned per panel via JS) -->
+    <template id="tplLoading">
+      <div class="flex items-center justify-center py-20">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          Loading…
+        </div>
+      </div>
+    </template>
+
+    <!-- Business Mgmt -->
+    <div id="panel-business-mgmt" class="tab-panel">
+      <div id="loading-business-mgmt" class="flex items-center justify-center py-20">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          Loading…
+        </div>
+      </div>
+      <div class="pathway-table-fullwidth mt-4">
+        <div id="table-wrapper-business-mgmt" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs pathway-table-compact">
+              <thead id="thead-business-mgmt" class="bg-slate-50 border-b border-slate-200"></thead>
+              <tbody id="tbody-business-mgmt" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Media -->
+    <div id="panel-media" class="tab-panel hidden">
+      <div id="loading-media" class="flex items-center justify-center py-20">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          Loading…
+        </div>
+      </div>
+      <div class="pathway-table-fullwidth mt-4">
+        <div id="table-wrapper-media" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs pathway-table-compact">
+              <thead id="thead-media" class="bg-slate-50 border-b border-slate-200"></thead>
+              <tbody id="tbody-media" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Computing -->
+    <div id="panel-computing" class="tab-panel hidden">
+      <div id="loading-computing" class="flex items-center justify-center py-20">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          Loading…
+        </div>
+      </div>
+      <div class="pathway-table-fullwidth mt-4">
+        <div id="table-wrapper-computing" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs pathway-table-compact">
+              <thead id="thead-computing" class="bg-slate-50 border-b border-slate-200"></thead>
+              <tbody id="tbody-computing" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Students -->
+    <div id="panel-students" class="tab-panel hidden">
+      <div id="loading-students" class="flex items-center justify-center py-20">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          Loading…
+        </div>
+      </div>
+      <div id="students-content" class="hidden">
+        <!-- Toolbar -->
+        <div class="flex gap-3 mb-4 items-center flex-wrap">
+          <div class="relative flex-1 min-w-[200px] max-w-xs">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="studentSearch" placeholder="Search by name or code…"
+              oninput="filterStudents()"
+              class="w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-400 transition-all placeholder-slate-400" />
+          </div>
+          <select id="pathwayFilter" onchange="filterStudents()"
+            class="px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/40 text-slate-600 cursor-pointer">
+            <option value="">All pathways</option>
+            <option value="Business Mgmt">Business Mgmt</option>
+            <option value="Media">Media</option>
+            <option value="Computing">Computing</option>
+          </select>
+          <select id="statusFilter" onchange="filterStudents()"
+            class="px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/40 text-slate-600 cursor-pointer">
+            <option value="">All statuses</option>
+            <option value="unconditional">Has unconditional</option>
+            <option value="conditional">Conditional only</option>
+            <option value="none">No offer yet</option>
+          </select>
+          <button type="button" onclick="importGradesFromExcel()" id="btnImportGrades"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
+            Import from Excel
+          </button>
+          <input type="file" id="gradesFileInput" accept=".xlsx,.xls" class="hidden" onchange="importGradesFromFile(this)">
+          <button type="button" onclick="document.getElementById('gradesFileInput').click()" id="btnUploadGrades"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
+            Upload grades file
+          </button>
+          <button onclick="exportStudentsCSV()"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors duration-150 whitespace-nowrap">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export CSV
+          </button>
+          <span id="studentCount" class="text-slate-400 text-sm ml-auto"></span>
+        </div>
+        <!-- Table -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="w-10 px-4 py-3"></th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Code</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Pathway</th>
+                  <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Offers</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Best university</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                </tr>
+              </thead>
+              <tbody id="students-tbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics -->
+    <div id="panel-analytics" class="tab-panel hidden">
+      <div id="loading-analytics" class="flex items-center justify-center py-20">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          Loading…
+        </div>
+      </div>
+      <div id="analytics-content" class="hidden"></div>
+    </div>
+
+    <!-- Edit grades modal -->
+    <div id="editGradesModal" class="fixed inset-0 z-50 hidden" aria-modal="true">
+      <div class="fixed inset-0 bg-slate-900/50" onclick="closeEditGradesModal()"></div>
+      <div class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 p-6 max-h-[90vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold text-slate-900 mb-1">Edit current grades</h3>
+        <p id="editGradesStudentName" class="text-sm text-slate-500 mb-4"></p>
+        <div id="editGradesFields" class="space-y-3 mb-6"></div>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="closeEditGradesModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">Cancel</button>
+          <button type="button" onclick="saveGradesFromModal()" class="px-4 py-2 bg-brand-600 text-white hover:bg-brand-700 rounded-lg text-sm font-medium">Save</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ── State ─────────────────────────────────────────────────────────────
+    // Set to true to show Business Mgmt, Media, Computing tabs again
+    const SHOW_PATHWAY_TABS = false;
+    let currentPathway = SHOW_PATHWAY_TABS ? 'business-mgmt' : 'analytics';
+    let _charts = {};
+
+    // ── Utilities ──────────────────────────────────────────────────────────
+    async function fetchJson(path) {
+      const r = await fetch(path);
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+
+    function esc(s) { return (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    // ── Upload Offer: click opens file picker, then uploads immediately ──────
+    document.getElementById('uploadBtn').addEventListener('click', () => {
+      document.getElementById('pdfFile').click();
+    });
+
+    // ── Tab switching ──────────────────────────────────────────────────────
+    document.querySelectorAll('#tabNav button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#tabNav button').forEach(b => {
+          b.classList.remove('tab-active');
+          b.classList.add('tab-inactive');
+        });
+        btn.classList.remove('tab-inactive');
+        btn.classList.add('tab-active');
+
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        currentPathway = btn.dataset.pathway;
+        document.getElementById('panel-' + currentPathway).classList.remove('hidden');
+
+        if (currentPathway === 'analytics') loadAnalytics();
+        else if (currentPathway === 'students') loadStudents();
+        else loadPathway(currentPathway);
+      });
+    });
+
+    // When pathway tabs are hidden, show Analytics by default
+    if (!SHOW_PATHWAY_TABS) {
+      document.querySelectorAll('.pathway-tab-optional').forEach(b => b.classList.add('hidden'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById('panel-analytics').classList.remove('hidden');
+      const analyticsBtn = document.getElementById('tab-analytics');
+      if (analyticsBtn) {
+        analyticsBtn.classList.remove('tab-inactive');
+        analyticsBtn.classList.add('tab-active');
+      }
+      document.querySelectorAll('.pathway-tab-optional').forEach(b => {
+        b.classList.remove('tab-active');
+        b.classList.add('tab-inactive');
+      });
+      loadAnalytics();
+    }
+
+    // ── Pathway table ──────────────────────────────────────────────────────
+    function renderPathwayTable(pathwayId, data) {
+      const loading = document.getElementById('loading-' + pathwayId);
+      const wrapper = document.getElementById('table-wrapper-' + pathwayId);
+      const thead   = document.getElementById('thead-' + pathwayId);
+      const tbody   = document.getElementById('tbody-' + pathwayId);
+      loading.style.display = 'none';
+
+      if (!data.rows || data.rows.length === 0) {
+        wrapper.classList.remove('hidden');
+        thead.innerHTML = '';
+        tbody.innerHTML = `<tr><td colspan="20" class="px-6 py-14 text-center text-slate-400 text-sm">
+          No students in this pathway, or Excel file not found.<br>
+          <span class="text-xs text-slate-300">Set BELLERBYS_GRADES_EXCEL or add the xlsx file to the project.</span>
+        </td></tr>`;
+        return;
+      }
+
+      const fixedHeaders = ['Code', 'Student', 'Provider', 'Course', 'Type', 'Date', '#', 'Subject conditions', 'English conditions'];
+      const subjectHeaders = [];
+      (data.subjects || []).forEach(s => {
+        subjectHeaders.push(s);
+        if (s === 'AES') subjectHeaders.push('Listen', 'Read', 'Write', 'Speak');
+      });
+
+      thead.innerHTML = '<tr>' + fixedHeaders.concat(subjectHeaders).map(h =>
+        `<th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">${h}</th>`
+      ).join('') + '</tr>';
+
+      tbody.innerHTML = data.rows.map((row, idx) => {
+        const offerLabel = row.offer_count > 1
+          ? `<span class="text-xs font-medium text-brand-600">${row.offer_index}/${row.offer_count}</span>`
+          : (row.offer_count === 1 ? '<span class="text-xs text-slate-400">1</span>' : '<span class="text-slate-300">—</span>');
+
+        let typeBadge = '<span class="text-slate-300 text-xs">—</span>';
+        if (row.offer_type === 'Conditional') {
+          typeBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20">Conditional</span>';
+        } else if (row.offer_type === 'Unconditional') {
+          typeBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Unconditional</span>';
+        }
+
+        const fixed = [
+          `<td class="px-4 py-3 font-mono text-xs text-slate-400 whitespace-nowrap">${esc(row.student_code) || '—'}</td>`,
+          `<td class="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">${esc(row.student_name) || '—'}</td>`,
+          `<td class="px-4 py-3 text-slate-600 whitespace-nowrap" style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${esc(row.university) || '—'}</td>`,
+          `<td class="px-4 py-3 text-slate-600" style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${esc(row.course_name) || '—'}</td>`,
+          `<td class="px-4 py-3 whitespace-nowrap">${typeBadge}</td>`,
+          `<td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">${esc(row.offer_date) || '—'}</td>`,
+          `<td class="px-4 py-3 text-center">${offerLabel}</td>`,
+          `<td class="px-4 py-3 text-xs text-slate-500" style="white-space:normal;min-width:90px;max-width:160px">${esc(row.subject_requirement) || '<span class="text-slate-300">—</span>'}</td>`,
+          `<td class="px-4 py-3 text-xs text-slate-500" style="white-space:normal;min-width:80px;max-width:140px">${esc(row.english_requirement) || '<span class="text-slate-300">—</span>'}</td>`,
+        ].join('');
+
+        const subjectCells = (data.subjects || []).flatMap(s => {
+          const val = row[s] || '';
+          const fmt = fmtScore(val);
+          const cell = fmt !== '—'
+            ? `<td class="px-4 py-3 text-center whitespace-nowrap"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-brand-50 text-brand-700">${fmt}</span></td>`
+            : `<td class="px-4 py-3 text-center text-slate-300 text-xs">—</td>`;
+          if (s !== 'AES') return [cell];
+          return [cell, ...['aes_listening','aes_reading','aes_writing','aes_speaking'].map(key => {
+            const fv = fmtScore(row[key] || '');
+            return fv !== '—'
+              ? `<td class="px-4 py-3 text-center whitespace-nowrap"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">${fv}</span></td>`
+              : `<td class="px-4 py-3 text-center text-slate-300 text-xs">—</td>`;
+          })];
+        });
+
+        const border = row.offer_count > 1 ? ' border-l-2 border-l-brand-300' : '';
+        const bg = idx % 2 !== 0 ? ' bg-slate-50/50' : '';
+        return `<tr class="hover:bg-brand-50/30 transition-colors duration-75${bg}${border}">${fixed}${subjectCells.join('')}</tr>`;
+      }).join('');
+
+      wrapper.classList.remove('hidden');
+    }
+
+    async function loadPathway(pathwayId) {
+      const loading = document.getElementById('loading-' + pathwayId);
+      loading.style.display = 'flex';
+      document.getElementById('table-wrapper-' + pathwayId).classList.add('hidden');
+      try {
+        const data = await fetchJson('/api/grades/pathway/' + pathwayId);
+        renderPathwayTable(pathwayId, data);
+      } catch (e) {
+        loading.style.display = 'none';
+        const wrapper = document.getElementById('table-wrapper-' + pathwayId);
+        document.getElementById('tbody-' + pathwayId).innerHTML =
+          `<tr><td colspan="20" class="px-6 py-14 text-center text-red-500 text-sm">Error: ${esc(e.message || 'Unknown error')}</td></tr>`;
+        wrapper.classList.remove('hidden');
+      }
+    }
+
+    // ── Analytics ──────────────────────────────────────────────────────────
+    function destroyCharts() {
+      Object.values(_charts).forEach(c => { try { c.destroy(); } catch(_) {} });
+      _charts = {};
+    }
+
+    const CHART_DEFAULTS = {
+      font: { family: 'Inter, system-ui, sans-serif' },
+      color: '#94a3b8',
+    };
+    Chart.defaults.font.family = CHART_DEFAULTS.font.family;
+
+    function initCharts(d) {
+      // Pathway coverage — stacked horizontal bar
+      const pathwayCtx = document.getElementById('chart-pathway');
+      if (pathwayCtx) {
+        _charts.pathway = new Chart(pathwayCtx, {
+          type: 'bar',
+          data: {
+            labels: d.pathway_stats.map(p => p.pathway),
+            datasets: [
+              { label: 'With offer',    data: d.pathway_stats.map(p => p.with_offer),    backgroundColor: '#cc2016', borderRadius: 4, borderSkipped: false },
+              { label: 'Without offer', data: d.pathway_stats.map(p => p.without_offer), backgroundColor: '#e2e8f0', borderRadius: 4, borderSkipped: false },
+            ],
+          },
+          options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { font: { size: 12 }, color: '#64748b', boxWidth: 12, padding: 16 } },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.x}` } },
+            },
+            scales: {
+              x: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8', stepSize: 1 }, border: { display: false } },
+              y: { stacked: true, grid: { display: false }, ticks: { font: { size: 12 }, color: '#475569' }, border: { display: false } },
+            },
+          },
+        });
+      }
+
+      // Top universities — horizontal bar
+      const uniCtx = document.getElementById('chart-unis');
+      if (uniCtx && d.top_universities.length) {
+        _charts.unis = new Chart(uniCtx, {
+          type: 'bar',
+          data: {
+            labels: d.top_universities.map(u => u.university),
+            datasets: [{ label: 'Offers', data: d.top_universities.map(u => u.count), backgroundColor: '#cc2016', borderRadius: 4, borderSkipped: false }],
+          },
+          options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} offer${ctx.parsed.x !== 1 ? 's' : ''}` } },
+            },
+            scales: {
+              x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8', stepSize: 1 }, border: { display: false } },
+              y: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#475569' }, border: { display: false } },
+            },
+          },
+        });
+      }
+
+      // AES distribution — vertical bar
+      const aesCtx = document.getElementById('chart-aes');
+      if (aesCtx && d.aes_distribution.length) {
+        _charts.aes = new Chart(aesCtx, {
+          type: 'bar',
+          data: {
+            labels: d.aes_distribution.map(a => a.score),
+            datasets: [{ label: 'Offers', data: d.aes_distribution.map(a => a.count), backgroundColor: '#cc2016', borderRadius: 4, borderSkipped: false }],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} offer${ctx.parsed.y !== 1 ? 's' : ''}` } },
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { size: 12 }, color: '#475569' }, border: { display: false } },
+              y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8', stepSize: 1 }, border: { display: false } },
+            },
+          },
+        });
+      }
+
+      // Offer type — donut
+      const typeCtx = document.getElementById('chart-offertype');
+      if (typeCtx) {
+        const cond  = d.offer_type_counts['Conditional']   || 0;
+        const uncond = d.offer_type_counts['Unconditional'] || 0;
+        const unk   = d.offer_type_counts['Unknown']       || 0;
+        const total = cond + uncond + unk;
+        if (total > 0) {
+          const raw = [[cond,'Conditional','#fbbf24'],[uncond,'Unconditional','#34d399'],[unk,'Unknown','#cbd5e1']].filter(x => x[0] > 0);
+          _charts.offertype = new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+              labels: raw.map(x => x[1]),
+              datasets: [{ data: raw.map(x => x[0]), backgroundColor: raw.map(x => x[2]), borderWidth: 0, hoverOffset: 6 }],
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false, cutout: '74%',
+              plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 12 }, color: '#64748b', boxWidth: 12, padding: 12 } },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed / total * 100)}%)` } },
+              },
+            },
+          });
+        }
+      }
+    }
+
+    function renderAnalytics(d) {
+      destroyCharts();
+
+      const coverage = d.total_students > 0 ? Math.round((d.students_with_offers / d.total_students) * 100) : 0;
+      const cond  = d.offer_type_counts['Conditional']   || 0;
+      const uncond = d.offer_type_counts['Unconditional'] || 0;
+
+      function statCard(value, label, sub, valueColor) {
+        return `
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-1">
+            <div class="text-2xl font-bold tracking-tight ${valueColor || 'text-slate-900'}">${value}</div>
+            <div class="text-sm font-medium text-slate-700">${label}</div>
+            ${sub ? `<div class="text-xs text-slate-400">${sub}</div>` : ''}
+          </div>`;
+      }
+
+      function card(title, contentHtml, badge, cls) {
+        const badgeHtml = badge
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}">${badge.text}</span>`
+          : '';
+        return `
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ${cls || ''}">
+            ${title ? `<div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+              <h3 class="text-sm font-semibold text-slate-900">${title}</h3>${badgeHtml}
+            </div>` : ''}
+            ${contentHtml}
+          </div>`;
+      }
+
+      let html = '';
+
+      // ── Row 1: Summary stat cards ──────────────────────────────────────
+      html += `<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">`;
+      const qsPct = d.qs_top100_pct || 0;
+      html += statCard(d.total_students,          'Total students',    'Across all pathways',              'text-slate-900');
+      html += statCard(d.total_offers,             'Offers uploaded',   'In the database',                  'text-brand-600');
+      html += statCard(coverage + '%',             'Coverage',          `${d.students_with_offers} of ${d.total_students} students`, 'text-emerald-600');
+      html += statCard(cond,                       'Conditional',       'offers',                            'text-amber-600');
+      html += statCard(qsPct + '%',                'QS Ranked',         `${d.qs_top100_students} of ${d.total_students} students`,   'text-brand-600');
+      html += statCard(d.students_without_offers,  'Missing offers',    'Need uploading',                    d.students_without_offers > 0 ? 'text-red-500' : 'text-slate-400');
+      html += `</div>`;
+
+      // ── Row 2: Pathway coverage + offer type donut ─────────────────────
+      html += `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">`;
+      html += card('Offer coverage by pathway',
+        `<div class="p-5" style="height:190px"><canvas id="chart-pathway"></canvas></div>`,
+        null, 'lg:col-span-2');
+      html += card('Offer types',
+        `<div class="p-5" style="height:190px"><canvas id="chart-offertype"></canvas></div>`);
+      html += `</div>`;
+
+      // ── Row 3: Top universities + AES distribution ─────────────────────
+      const uniH = Math.max(200, d.top_universities.length * 34 + 48);
+      const aesH = Math.max(180, d.aes_distribution.length * 44 + 48);
+      html += `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">`;
+      html += card('Top universities',
+        `<div class="p-5" style="height:${uniH}px"><canvas id="chart-unis"></canvas></div>`,
+        d.top_universities.length ? { text: `Top ${d.top_universities.length}`, cls: 'bg-slate-100 text-slate-600' } : null);
+      html += card('Required AES / English scores',
+        `<div class="p-5" style="height:${aesH}px"><canvas id="chart-aes"></canvas></div>`);
+      html += `</div>`;
+
+      // ── Row 4: QS Top 100 matched offers ──────────────────────────────
+      if (d.qs_top100_offers && d.qs_top100_offers.length) {
+        const qsRows = d.qs_top100_offers.map((o, i) => {
+          const medal = o.rank <= 10 ? '🥇' : o.rank <= 25 ? '🥈' : o.rank <= 50 ? '🥉' : '';
+          return `<tr class="${i % 2 !== 0 ? 'bg-slate-50/50' : ''} hover:bg-brand-50/30 transition-colors duration-75">
+            <td class="px-4 py-2.5 font-mono text-xs text-slate-400 w-14">#${o.rank}</td>
+            <td class="px-4 py-2.5 text-sm text-slate-800 font-medium">${medal ? medal + ' ' : ''}${esc(o.university)}</td>
+          </tr>`;
+        }).join('');
+        html += `<div class="mb-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-slate-900">QS ranked universities in your offers</h3>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700">${d.qs_top100_offers.length} matched</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-14">Rank</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">University</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">${qsRows}</tbody>
+            </table>
+          </div>
+        </div>`;
+      }
+
+      // ── Row 5: Missing students + Multiple offers ──────────────────────
+      html += `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">`;
+
+      // Missing students
+      if (d.students_missing_offer.length) {
+        const chips = d.students_missing_offer.map(s =>
+          `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10">
+            ${esc(s.student_name)}
+            <span class="text-red-400 font-normal opacity-75">${esc(s.pathway)}</span>
+          </span>`
+        ).join('');
+        html += card('Students without an offer',
+          `<div class="p-5"><div class="flex flex-wrap gap-2">${chips}</div></div>`,
+          { text: d.students_missing_offer.length, cls: 'bg-red-50 text-red-700' },
+          'lg:col-span-2');
+      } else {
+        html += card('Students without an offer',
+          `<div class="p-5 flex items-center gap-2 text-emerald-600 text-sm font-medium">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            All students have at least one offer uploaded
+          </div>`,
+          null, 'lg:col-span-2');
+      }
+
+      // Multiple offers
+      if (d.students_multiple_offers.length) {
+        const rows = d.students_multiple_offers.map((s, i) =>
+          `<tr class="${i % 2 !== 0 ? 'bg-slate-50/50' : ''} hover:bg-brand-50/30 transition-colors duration-75">
+            <td class="px-4 py-2.5 text-sm text-slate-700">${esc(s.name)}</td>
+            <td class="px-4 py-2.5 text-right">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700">${s.count}</span>
+            </td>
+          </tr>`
+        ).join('');
+        html += card('Students with multiple offers',
+          `<div class="overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Student</th>
+                  <th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Offers</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">${rows}</tbody>
+            </table>
+          </div>`,
+          { text: d.students_multiple_offers.length, cls: 'bg-brand-50 text-brand-700' });
+      } else {
+        html += card('Students with multiple offers',
+          `<div class="p-5 text-slate-400 text-sm">No students have multiple offers yet.</div>`);
+      }
+
+      html += `</div>`; // end bottom row
+
+      // ── Recent offers (all students, including those not in grades Excel) ──
+      if (d.recent_offers && d.recent_offers.length) {
+        const recentRows = d.recent_offers.slice(0, 25).map((o, i) =>
+          `<tr class="${i % 2 !== 0 ? 'bg-slate-50/50' : ''} hover:bg-slate-50 transition-colors duration-75" data-offer-id="${o.id}">
+            <td class="px-4 py-2.5">
+              <div class="flex items-center gap-1.5">
+                <input type="text" value="${esc(o.student_name) || ''}" placeholder="Student name"
+                  class="offer-name-input w-28 min-w-0 px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 focus:border-brand-400"
+                  data-offer-id="${o.id}" />
+                <button type="button" onclick="fixOfferName(${o.id}, this.closest('tr').querySelector('.offer-name-input').value)"
+                  class="flex-shrink-0 px-2 py-1 text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded">Fix name</button>
+              </div>
+            </td>
+            <td class="px-4 py-2.5 text-sm text-slate-700">${esc(o.university)}</td>
+            <td class="px-4 py-2.5 text-sm text-slate-600">${esc(o.course_name)}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-500">${esc(o.offer_type)}</td>
+            <td class="px-4 py-2.5 text-xs text-slate-400">${esc(o.offer_date)}</td>
+          </tr>`
+        ).join('');
+        html += `<div class="mt-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+            <h3 class="text-sm font-semibold text-slate-900">Recent offers (all uploads)</h3>
+            <a href="/api/offers/all" target="_blank" rel="noopener" class="text-xs text-brand-600 hover:text-brand-700 font-medium">View all (JSON)</a>
+          </div>
+          <p class="px-5 py-2 text-xs text-slate-500 border-b border-slate-100">If an offer doesn't show under a student on the Students tab, the stored name may not match the Excel. Set the name to <strong>exactly</strong> what's in the Excel (English name or First + Last) and click Fix name.</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Student (editable)</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">University</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Course</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">${recentRows}</tbody>
+            </table>
+          </div>
+        </div>`;
+      }
+
+      document.getElementById('loading-analytics').style.display = 'none';
+      const content = document.getElementById('analytics-content');
+      content.innerHTML = html;
+      content.classList.remove('hidden');
+
+      // Init charts after DOM update
+      requestAnimationFrame(() => initCharts(d));
+    }
+
+    async function fixOfferName(offerId, newName) {
+      try {
+        const r = await fetch('/api/offers/' + offerId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_name: (newName || '').trim() || null }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        if (currentPathway === 'analytics') loadAnalytics();
+        else if (currentPathway === 'students') loadStudents();
+      } catch (e) {
+        alert('Failed to update: ' + (e.message || e));
+      }
+    }
+
+    async function loadAnalytics() {
+      destroyCharts();
+      document.getElementById('loading-analytics').style.display = 'flex';
+      document.getElementById('analytics-content').classList.add('hidden');
+      try {
+        const [data, allOffers] = await Promise.all([
+          fetchJson('/api/analytics'),
+          fetchJson('/api/offers/all?limit=50').catch(() => ({ offers: [] })),
+        ]);
+        data.recent_offers = (allOffers && allOffers.offers) || [];
+        renderAnalytics(data);
+      } catch (e) {
+        document.getElementById('loading-analytics').innerHTML =
+          `<div class="text-red-500 text-sm px-6 py-14 text-center">Error: ${esc(e.message || 'Unknown error')}</div>`;
+      }
+    }
+
+    // ── Upload logic ────────────────────────────────────────────────────────
+    async function uploadOneFile(file, studentName) {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (studentName) formData.append('student_name', studentName);
+      const r = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      return data;
+    }
+
+    document.getElementById('pdfFile').addEventListener('change', async (e) => {
+      const fileInput = e.target;
+      const files = fileInput.files ? Array.from(fileInput.files) : [];
+      const statusEl = document.getElementById('uploadStatus');
+      const btn = document.getElementById('uploadBtn');
+
+      if (!files.length) return;
+
+      btn.disabled = true;
+      statusEl.textContent = 'Uploading…';
+      statusEl.className = 'absolute right-full mr-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 whitespace-nowrap';
+      statusEl.classList.remove('hidden');
+
+      let ok = 0, skipped = 0, failed = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        statusEl.textContent = `Processing ${i + 1} of ${files.length}…`;
+        try {
+          await uploadOneFile(files[i], files.length === 1 ? null : null);
+          ok++;
+        } catch (err) {
+          const msg = err.message || 'Failed';
+          if (msg.startsWith('Duplicate:')) skipped++;
+          else failed++;
+        }
+      }
+
+      const parts = [];
+      if (ok)      parts.push(`${ok} saved`);
+      if (skipped) parts.push(`${skipped} duplicate${skipped > 1 ? 's' : ''} skipped (already in database)`);
+      if (failed)  parts.push(`${failed} failed`);
+      statusEl.textContent = parts.length ? parts.join(', ') : 'Done.';
+      let statusColor = 'text-slate-600';
+      if (failed > 0 && ok === 0) statusColor = 'text-red-600';
+      else if (skipped > 0) statusColor = 'text-amber-600';
+      else if (ok > 0) statusColor = 'text-emerald-600';
+      statusEl.className = `absolute right-full mr-2 top-1/2 -translate-y-1/2 text-xs whitespace-nowrap ${statusColor}`;
+
+      fileInput.value = '';
+      btn.disabled = false;
+      if (ok > 0) {
+        if (currentPathway === 'analytics') loadAnalytics();
+        else if (currentPathway === 'students') loadStudents();
+        else loadPathway(currentPathway);
+      }
+      setTimeout(() => { statusEl.classList.add('hidden'); }, 4000);
+    });
+
+    // ── Score formatter ────────────────────────────────────────────────────
+    // Formats grades to 1 dp: percentages as "65.3%", band scores (≤9.5) as "IELTS 6.5".
+    function fmtScore(val) {
+      if (val === null || val === undefined || val === '') return '—';
+      const s = String(val).trim();
+      if (!s || s === 'null' || s === 'None') return '—';
+      const n = parseFloat(s.replace(/%/g, ''));
+      if (isNaN(n)) return s;
+      const oneDp = Math.round(n * 10) / 10;
+      if (oneDp <= 9.5) return 'IELTS ' + oneDp.toFixed(1);
+      return oneDp.toFixed(1) + '%';
+    }
+
+    // ── Students tab ───────────────────────────────────────────────────────
+    let _studentData = null;
+    let _editGradesCode = null;
+
+    const ALL_SUBJECTS = ['AES', 'Business Management', 'Statistics with Project Skills', 'Economics', 'Media Analysis', 'Film Production', 'Print & Digital News', 'Mathematics', 'Physics'];
+    const SUBJ_SHORT = {
+      'AES': 'AES', 'Business Management': 'Biz Mgmt', 'Statistics with Project Skills': 'Statistics',
+      'Economics': 'Economics', 'Media Analysis': 'Media', 'Film Production': 'Film', 'Print & Digital News': 'Print/Digital',
+      'Mathematics': 'Maths', 'Physics': 'Physics',
+    };
+    function progressMet(current, required) {
+      if (!required || required === '—') return null;
+      const c = (current || '').toString().trim().replace(/%$/, '');
+      const r = (required || '').toString().trim().replace(/%$/, '').replace(/^IELTS\s+/i, '');
+      if (!c || !r) return null;
+      const cNum = parseFloat(c), rNum = parseFloat(r);
+      if (Number.isNaN(cNum) || Number.isNaN(rNum)) return null;
+      return cNum >= rNum;
+    }
+
+    const PATHWAY_BADGE = {
+      'Business Mgmt': 'bg-amber-50 text-amber-700 ring-amber-600/20',
+      'Media':         'bg-sky-50 text-sky-700 ring-sky-600/20',
+      'Computing':     'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+    };
+
+    function _typeBadge(type) {
+      if (!type) return '<span class="text-slate-300">—</span>';
+      if (type === 'Conditional')
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20">Conditional</span>';
+      if (type === 'Unconditional')
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Unconditional</span>';
+      return `<span class="text-slate-500 text-xs">${esc(type)}</span>`;
+    }
+
+    function renderStudentsTable(students) {
+      const tbody = document.getElementById('students-tbody');
+      const countEl = document.getElementById('studentCount');
+      countEl.textContent = `${students.length} student${students.length !== 1 ? 's' : ''}`;
+
+      if (!students.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-14 text-center text-slate-400 text-sm">No students match the current filters.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = students.map((s, rowIdx) => {
+        const code = s.student_code;
+        const pathBadgeCls = PATHWAY_BADGE[s.pathway] || 'bg-slate-100 text-slate-600 ring-slate-500/20';
+
+        const statusBadge = s.status === 'unconditional'
+          ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20">Unconditional</span>'
+          : s.status === 'conditional'
+          ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20">Conditional</span>'
+          : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-400">No offer</span>';
+
+        // Best university: lowest QS rank, else first offer
+        const bestOffer = s.offers.length
+          ? (s.offers.find(o => o.qs_rank === s.best_qs_rank) || s.offers[0])
+          : null;
+        const bestUniName = bestOffer ? esc(bestOffer.university) : '—';
+        const qsBadge = s.best_qs_rank
+          ? `<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-brand-50 text-brand-700">#${s.best_qs_rank}</span>`
+          : '';
+        const hasOffers = s.offers.length > 0;
+        const condOffers = (s.offers || []).filter(o => (o.offer_type || '').toLowerCase() === 'conditional');
+        const currentGrades = s.current_grades || {};
+
+        // Current grades row (all subjects)
+        const gradesCells = ALL_SUBJECTS.map(subj => {
+          const val = currentGrades[subj] || '';
+          return `<span class="inline-flex items-center gap-1"><span class="text-slate-500 text-xs">${esc(SUBJ_SHORT[subj] || subj)}:</span><span class="font-medium text-slate-800">${val ? esc(fmtScore(val)) : '—'}</span></span>`;
+        }).join('');
+        const gradesBlock = `
+          <div class="px-4 pt-4 pb-2 border-b border-slate-200 bg-white">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-2">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Current grades</span>
+              <button type="button" data-edit-code="${esc(code)}" class="student-edit-grades-btn text-brand-600 hover:text-brand-700 text-xs font-medium">Edit grades</button>
+            </div>
+            <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">${gradesCells}</div>
+          </div>`;
+
+        // Helper: parse grade as percentage number (for average) or null if IELTS/empty
+        function parsePercentGrade(val) {
+              if (val === null || val === undefined || val === '') return null;
+              const s = String(val).trim().replace(/%/g, '');
+              if (s.toLowerCase().includes('ielts')) return null;
+              const n = parseFloat(s);
+              return (Number.isNaN(n) || n <= 9.5) ? null : n;
+            }
+        // Analytics: one block per conditional offer (Your grades vs [University name]), side by side
+        let analyticsBlock = '';
+        if (condOffers.length > 0) {
+          const blocks = condOffers.map(offer => {
+            const requiredScores = offer.subject_scores || {};
+            const uniName = esc(offer.university || 'Unknown');
+            const academicKeys = Object.keys(requiredScores).filter(k => k !== 'Overall' && k !== 'AES');
+            const subjectKeys = Object.keys(requiredScores).filter(k => k !== 'Overall');
+            let overallReq = requiredScores['Overall'] || '';
+            if (!overallReq && academicKeys.length > 0) {
+              const academicReqs = academicKeys.map(k => (requiredScores[k] || '').toString().trim().replace(/%/g, ''));
+              const nums = academicReqs.map(s => parseFloat(s)).filter(n => !Number.isNaN(n) && n > 9.5);
+              const allSame = nums.length === academicKeys.length && nums.every(n => n === nums[0]);
+              if (allSame && nums[0] != null) overallReq = nums[0] + '%';
+            }
+            const overallReqStr = (overallReq || '').toString().trim().toLowerCase();
+            const overallReqNum = parseFloat(overallReqStr.replace(/%/g, ''));
+            const hasOverallReq = overallReq && !Number.isNaN(overallReqNum) && overallReqNum > 9.5;
+            const avgNums = academicKeys.map(k => parsePercentGrade(currentGrades[k] || '')).filter(n => n !== null);
+            const avgVal = avgNums.length ? (avgNums.reduce((a, b) => a + b, 0) / avgNums.length) : null;
+            const avgLabel = academicKeys.length
+              ? 'Average (' + academicKeys.map(k => SUBJ_SHORT[k] || k).join(', ') + ')'
+              : 'Average (academic)';
+            const overallReqDisplay = hasOverallReq ? (overallReq.toString().trim().endsWith('%') ? overallReq : overallReq + '%') : '';
+            const avgLabelWithOverall = hasOverallReq ? avgLabel + ' — ' + overallReqDisplay + ' overall' : avgLabel;
+            const averageRow = `<tr class="border-t border-slate-200"><td class="py-1 pr-4 text-slate-700 font-bold">${esc(avgLabelWithOverall)}</td><td class="py-1 pr-4 font-bold">${avgVal !== null ? avgVal.toFixed(1) + '%' : '—'}</td><td class="py-1 pr-4 text-slate-500 font-bold">${hasOverallReq ? esc(fmtScore(overallReq)) : '—'}</td><td class="py-1 font-bold">${hasOverallReq && avgVal !== null ? (avgVal >= overallReqNum ? '<span class="text-emerald-600">✓ Met</span>' : '<span class="text-amber-600">○ Not yet</span>') : '<span class="text-slate-400">—</span>'}</td></tr>`;
+            const rows = subjectKeys.map(subj => {
+              const req = requiredScores[subj] || '';
+              const reqStr = (req || '').toString().trim().toLowerCase();
+              const reqNum = parseFloat(reqStr.replace(/^ielts\s*/, '').replace(/%/g, ''));
+              const isIeltsRequired = reqStr.includes('ielts') || (!reqStr.includes('%') && !Number.isNaN(reqNum) && reqNum <= 9.5);
+              let yoursCell = '—';
+              let statusCell = '<span class="text-slate-400">—</span>';
+              const cur = currentGrades[subj] || '';
+              if (!isIeltsRequired) {
+                yoursCell = cur ? esc(fmtScore(cur)) : '—';
+                const met = progressMet(cur, req);
+                if (met === true) statusCell = '<span class="text-emerald-600">✓ Met</span>';
+                else if (met === false) statusCell = '<span class="text-amber-600">○ Not yet</span>';
+              } else {
+                statusCell = '<span class="text-slate-500 text-xs">Enter manually</span>';
+              }
+              return `<tr><td class="py-1 pr-4 text-slate-600">${esc(SUBJ_SHORT[subj] || subj)}</td><td class="py-1 pr-4">${yoursCell}</td><td class="py-1 pr-4 text-slate-500">${esc(fmtScore(req))}</td><td class="py-1">${statusCell}</td></tr>`;
+            }).concat([averageRow]).join('');
+            return `
+          <div class="flex-1 min-w-[260px] px-4 py-3 border border-slate-200 rounded-lg bg-slate-50/50">
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Your grades vs ${uniName}</div>
+            <table class="text-sm w-full"><thead><tr><th class="text-left pr-4 py-1 font-medium text-slate-500">Subject</th><th class="text-left pr-4 py-1 font-medium text-slate-500">Yours</th><th class="text-left pr-4 py-1 font-medium text-slate-500">Required</th><th class="text-left py-1 font-medium text-slate-500">Status</th></tr></thead><tbody>${rows}</tbody></table>
+          </div>`;
+          }).join('');
+          analyticsBlock = `<div class="flex flex-wrap gap-4 px-4 py-3 border-b border-slate-200">${blocks}</div>`;
+        } else if (hasOffers) {
+          analyticsBlock = '<div class="px-4 py-2 border-b border-slate-200 bg-slate-50/50 text-xs text-slate-500">No conditional offer to compare with.</div>';
+        }
+
+        // Offer sub-rows
+        const subjects = s.subjects || [];
+        const subjectCols = subjects.map(subj =>
+          `<td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">${esc(SUBJ_SHORT[subj] || subj)}</td>`
+        ).join('');
+
+        const subHead = `
+          <tr class="bg-slate-100 border-t border-slate-200">
+            <td class="w-10"></td>
+            <td class="pl-4 pr-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">University</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Course</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Offer date</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">AES</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Listen</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Read</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Write</td>
+            <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Speak</td>
+            ${subjectCols}
+            <td class="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Conditions</td>
+          </tr>`;
+
+        const colCount = 11 + subjects.length;
+        const subRows = s.offers.map((o, offerIdx) => {
+          const qsTag = o.qs_rank
+            ? `<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-brand-50 text-brand-700">#${o.qs_rank}</span>`
+            : '';
+          const scoreCell = v => {
+            const fmt = fmtScore(v);
+            return fmt === '—'
+              ? `<td class="px-3 py-2.5 text-center text-slate-300 text-xs">—</td>`
+              : `<td class="px-3 py-2.5 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-brand-50 text-brand-700">${fmt}</span></td>`;
+          };
+          const subjScores = o.subject_scores || {};
+          const subjCells = subjects.map(subj => scoreCell(subjScores[subj] || '')).join('');
+          const subjReq = (o.subject_requirement || '').trim();
+          const engReq = (o.english_requirement || '').trim();
+          const conditionsId = `conditions-${code}-${offerIdx}`;
+          const conditionsRow = `<tr id="${conditionsId}" class="hidden bg-slate-50/80 border-t border-slate-100">
+            <td colspan="${colCount}" class="px-4 py-3 text-xs text-slate-600">
+              <div class="flex flex-wrap gap-6">
+                <div><span class="font-semibold text-slate-500">Subject conditions:</span> ${subjReq ? esc(subjReq) : '—'}</div>
+                <div><span class="font-semibold text-slate-500">English conditions:</span> ${engReq ? esc(engReq) : '—'}</div>
+              </div>
+            </td>
+          </tr>`;
+          const conditionsBtn = `<button type="button" onclick="event.stopPropagation(); toggleOfferConditions('${code}', ${offerIdx})" class="text-xs text-slate-500 hover:text-brand-600 underline">Conditions</button>`;
+          return `<tr class="bg-white border-t border-slate-100 hover:bg-brand-50/20 transition-colors duration-75">
+            <td class="w-10"></td>
+            <td class="pl-4 pr-3 py-2.5 text-sm text-slate-800">${esc(o.university)}${qsTag}</td>
+            <td class="px-3 py-2.5 text-xs text-slate-600 max-w-[180px]">${esc(o.course_name) || '—'}</td>
+            <td class="px-3 py-2.5">${_typeBadge(o.offer_type)}</td>
+            <td class="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">${esc(o.offer_date) || '—'}</td>
+            ${scoreCell(o.aes_overall)}
+            ${scoreCell(o.aes_listening)}
+            ${scoreCell(o.aes_reading)}
+            ${scoreCell(o.aes_writing)}
+            ${scoreCell(o.aes_speaking)}
+            ${subjCells}
+            <td class="px-3 py-2.5 text-right">${conditionsBtn}</td>
+          </tr>${conditionsRow}`;
+        }).join('');
+
+        const offersTable = hasOffers
+          ? `<table class="w-full text-sm">${subHead}${subRows}</table>`
+          : '<div class="px-4 py-6 text-center text-slate-400 text-sm">No offers yet.</div>';
+        const detailRow = `
+          <tr id="detail-${code}" class="hidden">
+            <td colspan="7" class="p-0 bg-slate-50 border-b border-slate-200 align-top">
+              <div class="min-w-0"><div class="overflow-x-auto">${offersTable}</div>${gradesBlock}${analyticsBlock}</div>
+            </td>
+          </tr>`;
+
+        const chevron = `<svg id="chevron-${code}" class="w-4 h-4 text-slate-300 transition-transform duration-150 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`;
+        const rowBg = rowIdx % 2 !== 0 ? ' bg-slate-50/40' : '';
+        const onclick = ` onclick="toggleStudent('${code}')"`;
+
+        return `
+          <tr class="hover:bg-brand-50/20 transition-colors duration-75 cursor-pointer${rowBg}"${onclick}>
+            <td class="px-4 py-3 text-center">${chevron}</td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-400">${esc(code)}</td>
+            <td class="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">${esc(s.student_name)}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset ${pathBadgeCls}">${s.pathway}</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              ${s.offer_count > 0 ? `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold bg-brand-600 text-white">${s.offer_count}</span>` : '<span class="text-slate-300">—</span>'}
+            </td>
+            <td class="px-4 py-3">
+              <span class="text-slate-700 text-sm">${bestUniName}</span>${qsBadge}
+            </td>
+            <td class="px-4 py-3">${statusBadge}</td>
+          </tr>
+          ${detailRow}`;
+      }).join('');
+    }
+
+    function toggleStudent(code) {
+      const detail = document.getElementById('detail-' + code);
+      const chevron = document.getElementById('chevron-' + code);
+      if (!detail) return;
+      const isCurrentlyHidden = detail.classList.contains('hidden');
+      // When opening this row, collapse any other open student row first
+      if (isCurrentlyHidden) {
+        document.querySelectorAll('[id^="detail-"]').forEach(function (el) {
+          if (el.id === 'detail-' + code) return;
+          el.classList.add('hidden');
+          const otherChevron = document.getElementById('chevron-' + el.id.replace('detail-', ''));
+          if (otherChevron) otherChevron.style.transform = '';
+        });
+      }
+      const hidden = detail.classList.toggle('hidden');
+      if (chevron) chevron.style.transform = hidden ? '' : 'rotate(90deg)';
+    }
+
+    function toggleOfferConditions(studentCode, offerIdx) {
+      const row = document.getElementById('conditions-' + studentCode + '-' + offerIdx);
+      if (row) row.classList.toggle('hidden');
+    }
+
+    function filterStudents() {
+      if (!_studentData) return;
+      const search  = document.getElementById('studentSearch').value.toLowerCase().trim();
+      const pathway = document.getElementById('pathwayFilter').value;
+      const status  = document.getElementById('statusFilter').value;
+      let list = _studentData.students;
+      if (search)  list = list.filter(s => s.student_name.toLowerCase().includes(search) || s.student_code.includes(search));
+      if (pathway) list = list.filter(s => s.pathway === pathway);
+      if (status)  list = list.filter(s => s.status === status);
+      renderStudentsTable(list);
+    }
+
+    function exportStudentsCSV() {
+      if (!_studentData) return;
+      // Gather the unique subject columns across all pathways
+      const pathwaySubjects = {};
+      _studentData.students.forEach(s => { pathwaySubjects[s.pathway] = s.subjects || []; });
+      // Use a fixed ordered set: Business Mgmt subjects then Media then Computing (deduped)
+      const allSubjects = [...new Set(
+        ['Business Mgmt','Media','Computing'].flatMap(p => pathwaySubjects[p] || [])
+      )];
+      const headers = ['Code','Name','Pathway','University','Course','Offer Type','Offer Date',
+        ...allSubjects, 'QS Rank'];
+      const rows = [headers];
+      _studentData.students.forEach(s => {
+        const subjects = s.subjects || [];
+        if (!s.offers.length) {
+          rows.push([s.student_code, s.student_name, s.pathway, ...Array(headers.length - 3).fill('')]);
+        } else {
+          s.offers.forEach(o => {
+            const subjScores = o.subject_scores || {};
+            rows.push([
+              s.student_code, s.student_name, s.pathway,
+              o.university, o.course_name, o.offer_type, o.offer_date,
+              ...allSubjects.map(subj => subjects.includes(subj) ? fmtScore(subjScores[subj] || '') : ''),
+              o.qs_rank || '',
+            ]);
+          });
+        }
+      });
+      const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `bellerbys-students-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+
+    async function loadStudents() {
+      const loading  = document.getElementById('loading-students');
+      const content  = document.getElementById('students-content');
+      loading.style.display = 'flex';
+      content.classList.add('hidden');
+      try {
+        _studentData = await fetchJson('/api/students');
+        loading.style.display = 'none';
+        content.classList.remove('hidden');
+        renderStudentsTable(_studentData.students);
+      } catch (e) {
+        loading.innerHTML = `<div class="text-red-500 text-sm">Error: ${esc(e.message || 'Unknown error')}</div>`;
+      }
+    }
+
+    document.getElementById('students-content').addEventListener('click', function(e) {
+      const btn = e.target.closest('.student-edit-grades-btn');
+      if (btn) openEditGradesModal(btn.getAttribute('data-edit-code') || '');
+    });
+    async function importGradesFromExcel() {
+      const btn = document.getElementById('btnImportGrades');
+      if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
+      try {
+        const r = await fetch('/api/grades/import', { method: 'POST' });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || data.message || 'Import failed');
+        if (currentPathway === 'students') loadStudents();
+        alert(data.message || 'Import complete.');
+      } catch (e) {
+        alert('Error: ' + (e.message || 'Unknown error'));
+      }
+      if (btn) { btn.disabled = false; btn.textContent = 'Import from Excel'; }
+    }
+    async function importGradesFromFile(inputEl) {
+      const file = inputEl && inputEl.files && inputEl.files[0];
+      if (!file) return;
+      const btn = document.getElementById('btnUploadGrades');
+      if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const r = await fetch('/api/grades/import', { method: 'POST', body: form });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || data.message || 'Import failed');
+        if (currentPathway === 'students') loadStudents();
+        alert(data.message || 'Import complete.');
+      } catch (e) {
+        alert('Error: ' + (e.message || 'Unknown error'));
+      }
+      inputEl.value = '';
+      if (btn) { btn.disabled = false; btn.textContent = 'Upload grades file'; }
+    }
+    function openEditGradesModal(code) {
+      _editGradesCode = code;
+      const p = (_studentData && _studentData.students) ? _studentData.students.find(x => x.student_code === code) : null;
+      document.getElementById('editGradesStudentName').textContent = p ? p.student_name + ' (' + code + ')' : code;
+      const subjects = ALL_SUBJECTS;
+      const current = (p && p.current_grades) ? p.current_grades : {};
+      const container = document.getElementById('editGradesFields');
+      container.innerHTML = subjects.map(subj => {
+        const val = current[subj] || '';
+        const short = SUBJ_SHORT[subj] || subj;
+        return `<label class="block"><span class="text-xs font-medium text-slate-500 block mb-1">${esc(short)}</span><input type="text" data-subject="${esc(subj)}" value="${esc(val)}" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. 65% or IELTS 6.5"/></label>`;
+      }).join('');
+      document.getElementById('editGradesModal').classList.remove('hidden');
+    }
+    function closeEditGradesModal() {
+      document.getElementById('editGradesModal').classList.add('hidden');
+      _editGradesCode = null;
+    }
+    async function saveGradesFromModal() {
+      if (!_editGradesCode) return;
+      const container = document.getElementById('editGradesFields');
+      const grades = {};
+      container.querySelectorAll('input[data-subject]').forEach(inp => {
+        const subj = inp.getAttribute('data-subject');
+        const val = (inp.value || '').trim();
+        grades[subj] = val;
+      });
+      try {
+        await fetch('/api/students/' + encodeURIComponent(_editGradesCode) + '/grades', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ grades }),
+        });
+        closeEditGradesModal();
+        if (currentPathway === 'students' && _studentData) loadStudents();
+      } catch (e) {
+        alert('Error saving: ' + (e.message || 'Unknown error'));
+      }
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────────
+    loadPathway('business-mgmt');
+  </script>
+</body>
+</html>

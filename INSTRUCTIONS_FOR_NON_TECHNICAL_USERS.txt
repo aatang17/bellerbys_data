@@ -1,0 +1,54 @@
+================================================================================
+  BELLERBYS PROGRESSION STATUS – HOW TO USE IT (no coding needed)
+================================================================================
+
+You don’t need GitHub, git, or any developer tools. Just a link or this folder.
+
+OPTION 1 – YOU GOT A LINK (easiest)
+-----------------------------------
+If someone sent you a link (e.g. https://xxxx.ngrok.io or similar):
+
+  • Click the link or paste it into your browser (Chrome, Safari, Edge).
+  • Use the site like any normal website: click tabs, upload offers, view students.
+  • You don’t need to install or configure anything.
+
+  That’s it.
+
+
+OPTION 2 – YOU GOT A FOLDER (e.g. Bellerbys.zip)
+-----------------------------------------------
+If someone sent you a zip file or a folder with the app inside:
+
+  1. Unzip the folder (if it’s a .zip) and remember where you put it.
+
+  2. First-time only – get an API key (free):
+     • Open: https://aistudio.google.com/app/apikey
+     • Sign in with a Google account.
+     • Click “Create API key” and copy the key (long line of letters/numbers).
+
+  3. First-time only – add your key to the app:
+     • In the Bellerbys folder, find the file:  .env.example
+     • Duplicate it and rename the copy to:  .env
+     • Open .env in Notepad (Windows) or TextEdit (Mac).
+     • Find the line that says:  GEMINI_API_KEY=your_gemini_api_key_here
+     • Replace  your_gemini_api_key_here  with the key you copied. Save and close.
+
+  4. Start the app:
+     • On Mac: double-click  RUN.command
+       (If Mac says it’s from an unidentified developer: right-click → Open → Open.)
+     • On Windows: double-click  RUN.bat
+
+  5. A black window will open and say “Starting app…”. Your browser should open
+     to a page like http://localhost:8000. Use the app there.
+
+  6. Keep the black window open while you use the app. Closing it stops the app.
+
+  If the browser doesn’t open by itself, type this in your browser’s address bar:
+     http://localhost:8000
+
+
+NEED HELP?
+----------
+Ask the person who sent you the folder or link. They can:
+  • Send you a link (Option 1) so you don’t have to do any setup, or
+  • Walk you through the first-time steps for Option 2.
