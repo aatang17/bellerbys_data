@@ -421,6 +421,7 @@ def get_analytics():
     aes_score_counts: dict[str, int] = {}
     qs_uni_map: dict[str, int] = {}   # uni display name -> QS rank
     students_with_top100: set[str] = set()
+    qs_top100_offers_count: int = 0   # number of offers that are from QS-ranked unis
 
     for r in rows:
         name = _normalize_name(r[0])
@@ -444,6 +445,7 @@ def get_analytics():
         # QS ranking check
         rank = get_qs_rank(uni)
         if rank is not None:
+            qs_top100_offers_count += 1
             if uni not in qs_uni_map or qs_uni_map[uni] > rank:
                 qs_uni_map[uni] = rank
             if name:
@@ -503,13 +505,14 @@ def get_analytics():
         key=lambda x: -x["count"],
     )
 
-    # QS top 100 summary (only count current cohort)
+    # QS top 100 summary
     qs_top100_offers = [
         {"university": uni, "rank": rank}
         for uni, rank in sorted(qs_uni_map.items(), key=lambda x: x[1])
     ]
     students_top100_count = sum(1 for norm in all_students if norm in students_with_top100)
-    top100_pct = round(students_top100_count / total_students * 100) if total_students else 0
+    # % of QS 100 offers = (offers that are QS-ranked) / (total offers)
+    qs_top100_offers_pct = round(qs_top100_offers_count / total_offers * 100) if total_offers else 0
 
     return {
         "total_students": total_students,
@@ -523,7 +526,8 @@ def get_analytics():
         "students_missing_offer": missing_deduped,
         "students_multiple_offers": multi,
         "qs_top100_students": students_top100_count,
-        "qs_top100_pct": top100_pct,
+        "qs_top100_offers_count": qs_top100_offers_count,
+        "qs_top100_offers_pct": qs_top100_offers_pct,
         "qs_top100_offers": qs_top100_offers,
     }
 

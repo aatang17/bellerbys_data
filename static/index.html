@@ -569,12 +569,13 @@
 
       // ── Row 1: Summary stat cards ──────────────────────────────────────
       html += `<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">`;
-      const qsPct = d.qs_top100_pct || 0;
+      const qsOffersPct = d.qs_top100_offers_pct ?? 0;
+      const qsOffersCount = d.qs_top100_offers_count ?? 0;
       html += statCard(d.total_students,          'Total students',    'Across all pathways',              'text-slate-900');
       html += statCard(d.total_offers,             'Offers uploaded',   'In the database',                  'text-brand-600');
       html += statCard(coverage + '%',             'Coverage',          `${d.students_with_offers} of ${d.total_students} students`, 'text-emerald-600');
       html += statCard(cond,                       'Conditional',       'offers',                            'text-amber-600');
-      html += statCard(qsPct + '%',                'QS Ranked',         `${d.qs_top100_students} of ${d.total_students} students`,   'text-brand-600');
+      html += statCard(qsOffersPct + '%',          '% of QS 100 offers', `${qsOffersCount} of ${d.total_offers} offers`,            'text-brand-600');
       html += statCard(d.students_without_offers,  'Missing offers',    'Need uploading',                    d.students_without_offers > 0 ? 'text-red-500' : 'text-slate-400');
       html += `</div>`;
 

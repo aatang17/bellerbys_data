@@ -1,11 +1,12 @@
 """
-QS World University Rankings 2026 — UK Universities
-Source: QS World University Rankings 2026 (qs.com/rankings/world-university-rankings)
+QS World University Rankings — load from 世界大学排名.xlsx if present, else fallback list.
+Excel columns: 排名 (rank), 中文大学名称, 英文大学名称, 国家/地区.
 """
+import os
 import re
 
-# (rank, canonical name) — UK universities only
-QS_TOP_100_2025: list[tuple[int, str]] = [
+# Fallback: (rank, canonical name) — used when 世界大学排名.xlsx is not found
+QS_TOP_100_FALLBACK: list[tuple[int, str]] = [
     (2,   "Imperial College London"),
     (3,   "University of Oxford"),
     (5,   "University of Cambridge"),
@@ -42,7 +43,38 @@ QS_TOP_100_2025: list[tuple[int, str]] = [
     (292, "Swansea University"),
 ]
 
-_QS_DEDUPED = QS_TOP_100_2025
+
+def _load_qs_from_excel() -> list[tuple[int, str]] | None:
+    """Load (rank, English name) from 世界大学排名.xlsx (Sheet1, cols 0 and 2). Returns None if file missing or unreadable."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base, "世界大学排名.xlsx")
+    if not os.path.isfile(path):
+        return None
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        wb.close()
+    except Exception:
+        return None
+    if len(rows) < 2:
+        return None
+    out: list[tuple[int, str]] = []
+    for row in rows[1:]:
+        if not row or row[0] is None:
+            continue
+        try:
+            rank = int(row[0])
+            name = (row[2] or "").strip() if len(row) > 2 else ""
+            if name:
+                out.append((rank, name))
+        except (TypeError, ValueError):
+            continue
+    return out if out else None
+
+
+_QS_DEDUPED: list[tuple[int, str]] = _load_qs_from_excel() or QS_TOP_100_FALLBACK
 
 # ---------------------------------------------------------------------------
 # Known abbreviations / alternate names → canonical words
@@ -107,8 +139,9 @@ _QS_ENTRIES: list[tuple[int, str, frozenset[str]]] = [
 
 def get_qs_rank(university_name: str) -> int | None:
     """
-    Return the QS 2025 rank (1-100) for a university name, or None if not in top 100.
+    Return the QS rank for a university name, or None if not in the rankings list.
     Uses Jaccard similarity on significant words with a disqualifier blocklist.
+    Rankings loaded from 世界大学排名.xlsx when present.
     """
     if not university_name or not university_name.strip():
         return None
