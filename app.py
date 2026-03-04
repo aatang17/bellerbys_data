@@ -2,6 +2,7 @@
 Bellerbys Offer Letters — upload PDFs and store extracted data.
 Run: uvicorn app:app --reload --port 8000
 """
+import json
 import os
 import re
 from datetime import datetime
@@ -17,11 +18,13 @@ if _env_path.exists():
             os.environ.setdefault(_k.strip(), _v.strip())
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 import db
-from parse_offer_pdf import parse_pdf_with_pdfplumber, parse_image_with_gemini
+from parse_offer_pdf import parse_pdf_from_bytes, parse_image_with_gemini
 from grades_loader import (
     EXCLUDED_STUDENT_NAMES,
     get_excluded_student_codes,
@@ -33,12 +36,42 @@ from qs_rankings import get_qs_rank
 
 app = FastAPI(title="Bellerbys Offer Letters")
 
+# Allow ngrok and any other origin so the app works when shared via tunnel (e.g. ngrok)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    """Prevent browsers/proxies from caching so ngrok and shared links always see fresh data (e.g. student count)."""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        return response
+
+
+app.add_middleware(NoCacheMiddleware)
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = Path(os.environ.get("BELLERBYS_UPLOAD_DIR", os.path.join(BASE, "uploads")))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Excel grades file: set BELLERBYS_GRADES_EXCEL or use default below
 GRADES_EXCEL_PATH = os.environ.get("BELLERBYS_GRADES_EXCEL") or os.path.join(BASE, "BNBU SAPM - Semester 1 Grades_v2.xlsx")
+
+
+def _log_upload_diagnostic(tag: str, info: dict) -> None:
+    try:
+        log_path = Path(BASE) / "upload_diagnostic.log"
+        with open(log_path, "a") as f:
+            f.write(f"[{tag}] {json.dumps(info)}\n")
+    except Exception:
+        pass
 
 
 def _student_id_from_filename(file_name: str) -> str | None:
@@ -112,12 +145,23 @@ async def upload_offer(
     contents = await file.read()
     safe_name = re.sub(r"[^\w\-_.]", "_", file.filename)[:200]
     file_path = UPLOAD_DIR / safe_name
-    file_path.write_bytes(contents)
+
+    # Reject PDFs that are too small (e.g. OneDrive placeholder / "online-only" file)
+    if _is_pdf(file.filename) and len(contents) < 10_000:
+        raise HTTPException(
+            status_code=400,
+            detail="PDF is too small to be a real offer letter. If the file is in OneDrive, right-click it and choose "
+                   "'Always keep on this device' so it downloads fully, then upload again.",
+        )
 
     try:
         if _is_pdf(file.filename):
-            data = parse_pdf_with_pdfplumber(str(file_path))
+            _log_upload_diagnostic("pdf_upload", {"filename": file.filename, "bytes_received": len(contents)})
+            data = parse_pdf_from_bytes(contents)
+            _log_upload_diagnostic("pdf_parsed", {"university": data.get("university"), "course_name": data.get("course_name")})
+            file_path.write_bytes(contents)
         elif _is_image(file.filename):
+            file_path.write_bytes(contents)
             data = parse_image_with_gemini(str(file_path))
         else:
             file_path.unlink(missing_ok=True)
@@ -126,28 +170,54 @@ async def upload_offer(
         file_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"Could not parse file: {e}")
 
-    # Resolve student name: form value, else by student ID from filename (Excel lookup), else from filename text
-    name = (student_name or "").strip()
+    # Require filename to start with a student ID that is in the grades Excel (reject students not in cohort)
+    student_code_from_file = _student_id_from_filename(file.filename)
+    if not student_code_from_file:
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail="Filename must start with a student ID (e.g. 51111759-Mulan-RMIT.pdf). Only students in the grades Excel can have offers uploaded.",
+        )
+    name_by_code = get_student_name_by_code(GRADES_EXCEL_PATH)
+    if student_code_from_file not in name_by_code and student_code_from_file.strip() not in name_by_code:
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Student ID {student_code_from_file} is not in the grades Excel. Only students in the cohort can have offers uploaded. Use a filename like 51111759-Name-University.pdf.",
+        )
+    # When we have a student code, always use the cohort name (Excel + NAME_OVERRIDES e.g. Chen Yu for 51111738)
+    # so the stored offer shows the correct display name, not the filename (e.g. "Iris").
+    name = name_by_code.get(student_code_from_file) or name_by_code.get(student_code_from_file.strip())
     if not name:
-        student_id = _student_id_from_filename(file.filename)
-        if student_id:
-            name_by_code = get_student_name_by_code(GRADES_EXCEL_PATH)
-            name = name_by_code.get(student_id) or name_by_code.get(student_id.strip())
-        if not name:
-            name = _student_name_from_filename(file.filename)
+        name = (student_name or "").strip()
+    if not name:
+        name = _student_name_from_filename(file.filename)
     now = datetime.utcnow().isoformat() + "Z"
 
     with db.get_db() as conn:
-        # Reject duplicates: same student + same university + same course
-        existing = conn.execute(
-            """
-            SELECT id FROM offers
-            WHERE LOWER(TRIM(student_name)) = LOWER(TRIM(?))
-              AND LOWER(TRIM(university))   = LOWER(TRIM(?))
-              AND LOWER(TRIM(course_name))  = LOWER(TRIM(?))
-            """,
-            (name or "", data.get("university") or "", data.get("course_name") or ""),
-        ).fetchone()
+        # Reject duplicates: same student (by code if set, else by name) + same university + same course
+        if student_code_from_file:
+            existing = conn.execute(
+                """
+                SELECT id FROM offers
+                WHERE (student_code IS NOT NULL AND student_code = ?)
+                  AND LOWER(TRIM(university)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(course_name)) = LOWER(TRIM(?))
+                """,
+                (student_code_from_file, data.get("university") or "", data.get("course_name") or ""),
+            ).fetchone()
+        else:
+            existing = None
+        if not existing:
+            existing = conn.execute(
+                """
+                SELECT id FROM offers
+                WHERE LOWER(TRIM(student_name)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(university))   = LOWER(TRIM(?))
+                  AND LOWER(TRIM(course_name))  = LOWER(TRIM(?))
+                """,
+                (name or "", data.get("university") or "", data.get("course_name") or ""),
+            ).fetchone()
         if existing:
             file_path.unlink(missing_ok=True)
             raise HTTPException(
@@ -159,13 +229,14 @@ async def upload_offer(
         conn.execute(
             """
             INSERT INTO offers (
-                student_name, university, provider_code, course_name, course_code,
+                student_code, student_name, university, provider_code, course_name, course_code,
                 course_start_date, point_of_entry, offer_type, offer_date, reply_deadline,
                 offer_conditions, english_requirement, subject_requirement, contact_email, file_name, created_at,
                 aes_overall, aes_listening, aes_reading, aes_writing, aes_speaking, required_scores_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                student_code_from_file or None,
                 name or None,
                 data.get("university") or "",
                 data.get("provider_code"),
@@ -201,7 +272,23 @@ async def upload_offer(
 
 
 def _normalize_name(s: str) -> str:
-    return (s or "").strip().lower()
+    """Normalize for matching: lower, strip, collapse internal whitespace to single space."""
+    t = (s or "").strip().lower()
+    return re.sub(r"\s+", " ", t) if t else ""
+
+
+def _merge_offers(code_offers: list, name_offers: list, key_university: str = "university", key_course: str = "course_name") -> list:
+    """Merge offers from code match and name match so Students and Universities stay in sync.
+    Deduplicate by (university, course_name) so the same offer is not listed twice."""
+    seen: set[tuple[str, str]] = set()
+    out = []
+    for o in code_offers + name_offers:
+        k = (o.get(key_university) or "", o.get(key_course) or "")
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(o)
+    return out
 
 
 def _fuzzy_score(subject: str, scores: dict) -> str:
@@ -298,49 +385,52 @@ def get_grades_pathway(pathway: str):
 
     students = by_pathway.get(pathway_key, [])
 
-    # Build map: normalized student name -> list of all offers (one row per offer)
-    # University = Provider name (e.g. Durham University), Course = Course name (e.g. Business and Management)
+    # Build maps: student_code -> offers, normalized name -> offers (for offers without code)
     with db.get_db() as conn:
         rows = conn.execute(
-            "SELECT student_name, course_code, offer_type, offer_date, university, course_name,"
+            "SELECT student_code, student_name, course_code, offer_type, offer_date, university, course_name,"
             " subject_requirement, english_requirement,"
             " aes_overall, aes_listening, aes_reading, aes_writing, aes_speaking, required_scores_json"
             " FROM offers ORDER BY offer_date DESC"
         ).fetchall()
-    name_to_offers = {}
+    import json as _json
+    code_to_offers_pathway: dict[str, list] = {}
+    name_to_offers_pathway: dict[str, list] = {}
     for r in rows:
-        name = _normalize_name(r[0])
-        if not name:
-            continue
-        if name not in name_to_offers:
-            name_to_offers[name] = []
-        import json as _json
+        code = (r[0] or "").strip() or None
+        name = _normalize_name(r[1])
         req_scores = {}
         try:
-            if r[13]:
-                req_scores = _json.loads(r[13])
+            if r[14]:
+                req_scores = _json.loads(r[14])
         except Exception:
             pass
-        name_to_offers[name].append({
-            "course_code": r[1] or "",
-            "offer_type": r[2] or "",
-            "offer_date": str(r[3] or "") if r[3] else "",
-            "university": r[4] or "",
-            "course_name": r[5] or "",
-            "subject_requirement": r[6] or "",
-            "english_requirement": r[7] or "",
-            "aes_overall": r[8] or "",
-            "aes_listening": r[9] or "",
-            "aes_reading": r[10] or "",
-            "aes_writing": r[11] or "",
-            "aes_speaking": r[12] or "",
+        offer_row = {
+            "course_code": r[2] or "",
+            "offer_type": r[3] or "",
+            "offer_date": str(r[4] or "") if r[4] else "",
+            "university": r[5] or "",
+            "course_name": r[6] or "",
+            "subject_requirement": r[7] or "",
+            "english_requirement": r[8] or "",
+            "aes_overall": r[9] or "",
+            "aes_listening": r[10] or "",
+            "aes_reading": r[11] or "",
+            "aes_writing": r[12] or "",
+            "aes_speaking": r[13] or "",
             "required_scores": req_scores,
-        })
+        }
+        if code:
+            code_to_offers_pathway.setdefault(code, []).append(offer_row)
+        if name:
+            name_to_offers_pathway.setdefault(name, []).append(offer_row)
 
     out = []
     for s in students:
         norm = _normalize_name(s["student_name"]) or _normalize_name(s["english_name"])
-        offers = name_to_offers.get(norm, [])
+        code_offers = code_to_offers_pathway.get(s["student_code"], [])
+        name_offers = name_to_offers_pathway.get(norm, []) if norm else []
+        offers = _merge_offers(code_offers, name_offers, "university", "course_name")
         if not offers:
             # One row with blank offer so student still appears
             row = {
@@ -397,72 +487,75 @@ def get_analytics():
     # Load all students from Excel
     try:
         by_pathway = get_grades_by_pathway(GRADES_EXCEL_PATH)
+        total_students = sum(len(students) for students in by_pathway.values())
     except Exception:
         by_pathway = {"Business Mgmt": [], "Media": [], "Computing": []}
+        total_students = 0
+    code_to_name: dict[str, str] = {}
+    norm_to_codes: dict[str, list[str]] = {}
+    for students in by_pathway.values():
+        for s in students:
+            code = s["student_code"]
+            code_to_name[code] = s["student_name"] or s["english_name"] or code
+            norm = _normalize_name(s["student_name"] or s["english_name"])
+            if norm:
+                norm_to_codes.setdefault(norm, []).append(code)
 
-    all_students = {
-        _normalize_name(s["student_name"] or s["english_name"]): s["pathway"]
-        for pathway, students in by_pathway.items()
-        for s in students
-    }
-    total_students = len(all_students)
-
-    # Load all offers
+    # Load all offers (with student_code for unique-ID matching)
     with db.get_db() as conn:
         rows = conn.execute(
-            "SELECT student_name, university, offer_type, offer_date, "
+            "SELECT student_code, student_name, university, offer_type, offer_date, "
             "aes_overall, required_scores_json FROM offers ORDER BY offer_date DESC"
         ).fetchall()
 
-    # Per-student offer counts
-    student_offer_counts: dict[str, int] = {}
     university_counts: dict[str, int] = {}
     offer_type_counts: dict[str, int] = {"Conditional": 0, "Unconditional": 0, "Unknown": 0}
     aes_score_counts: dict[str, int] = {}
-    qs_uni_map: dict[str, int] = {}   # uni display name -> QS rank
-    students_with_top100: set[str] = set()
-    qs_top100_offers_count: int = 0   # number of offers that are from QS-ranked unis
+    qs_uni_map: dict[str, int] = {}
+    qs_top100_offers_count: int = 0
+    student_codes_with_offers: set[str] = set()
+    code_offer_counts: dict[str, int] = {}
+    students_with_top100_codes: set[str] = set()
 
     for r in rows:
-        name = _normalize_name(r[0])
-        uni = (r[1] or "Unknown").strip()
-        otype = (r[2] or "").strip()
-        aes = (r[4] or "").strip()
+        code = (r[0] or "").strip() or None
+        name = _normalize_name(r[1])
+        uni = (r[2] or "Unknown").strip()
+        otype = (r[3] or "").strip()
+        aes = (r[5] or "").strip()
 
-        if name:
-            student_offer_counts[name] = student_offer_counts.get(name, 0) + 1
+        # Attribute this offer to student_code(s): by code if set, else by name
+        codes_this_offer: list[str] = [code] if code else (norm_to_codes.get(name) or [])
+        for c in codes_this_offer:
+            student_codes_with_offers.add(c)
+            code_offer_counts[c] = code_offer_counts.get(c, 0) + 1
 
         university_counts[uni] = university_counts.get(uni, 0) + 1
-
         if otype in offer_type_counts:
             offer_type_counts[otype] += 1
         else:
             offer_type_counts["Unknown"] += 1
-
         if aes:
             aes_score_counts[_norm_aes(aes)] = aes_score_counts.get(_norm_aes(aes), 0) + 1
 
-        # QS ranking check
         rank = get_qs_rank(uni)
         if rank is not None:
             qs_top100_offers_count += 1
             if uni not in qs_uni_map or qs_uni_map[uni] > rank:
                 qs_uni_map[uni] = rank
-            if name:
-                students_with_top100.add(name)
+            for c in codes_this_offer:
+                students_with_top100_codes.add(c)
 
     total_offers = len(rows)
-    # Coverage = current cohort (Excel) only: count students who are in Excel AND have at least one offer
-    students_with_offers = sum(1 for norm in all_students if norm in student_offer_counts)
+    students_with_offers = sum(
+        1 for students in by_pathway.values() for s in students
+        if s["student_code"] in student_codes_with_offers
+    )
 
-    # Pathway breakdown
     pathway_stats = []
     for pathway, students in by_pathway.items():
         count = len(students)
-        with_offer = sum(
-            1 for s in students
-            if _normalize_name(s["student_name"] or s["english_name"]) in student_offer_counts
-        )
+        with_offer = sum(1 for s in students if s["student_code"] in student_codes_with_offers)
         pathway_stats.append({
             "pathway": pathway,
             "total": count,
@@ -470,49 +563,39 @@ def get_analytics():
             "without_offer": count - with_offer,
         })
 
-    # Top universities (up to 10)
-    top_unis = sorted(university_counts.items(), key=lambda x: -x[1])[:10]
-
-    # AES score distribution (sorted by score value then count)
     def _sort_key(item):
         s = item[0].replace("%", "").replace("IELTS", "").strip()
         try:
             return float(s)
         except ValueError:
             return 999
+    top_unis = sorted(university_counts.items(), key=lambda x: -x[1])[:10]
     aes_dist = sorted(aes_score_counts.items(), key=_sort_key)
 
-    # Students without any offer
-    missing = [
-        {"student_name": s["student_name"], "pathway": s["pathway"]}
-        for norm, pathway in all_students.items()
-        for s in by_pathway.get(pathway, [])
-        if _normalize_name(s["student_name"] or s["english_name"]) == norm
-        and norm not in student_offer_counts
+    missing_deduped = [
+        {"student_code": s["student_code"], "student_name": s["student_name"], "pathway": s["pathway"]}
+        for students in by_pathway.values()
+        for s in students
+        if s["student_code"] not in student_codes_with_offers
     ]
-    # Deduplicate (dict comprehension above can double-emit); use ordered set via dict
-    seen: set[str] = set()
-    missing_deduped = []
-    for m in missing:
-        key = _normalize_name(m["student_name"])
-        if key not in seen:
-            seen.add(key)
-            missing_deduped.append(m)
 
-    # Multiple-offer students
     multi = sorted(
-        [{"name": k, "count": v} for k, v in student_offer_counts.items() if v > 1],
+        [{"name": code_to_name.get(code, code), "count": count} for code, count in code_offer_counts.items() if count > 1],
         key=lambda x: -x["count"],
     )
 
-    # QS top 100 summary
     qs_top100_offers = [
         {"university": uni, "rank": rank}
         for uni, rank in sorted(qs_uni_map.items(), key=lambda x: x[1])
     ]
-    students_top100_count = sum(1 for norm in all_students if norm in students_with_top100)
+    students_top100_count = sum(
+        1 for students in by_pathway.values() for s in students
+        if s["student_code"] in students_with_top100_codes
+    )
     # % of QS 100 offers = (offers that are QS-ranked) / (total offers)
     qs_top100_offers_pct = round(qs_top100_offers_count / total_offers * 100) if total_offers else 0
+    # % of students with at least one QS 100 offer
+    qs_top100_students_pct = round(students_top100_count / total_students * 100) if total_students else 0
 
     return {
         "total_students": total_students,
@@ -526,40 +609,125 @@ def get_analytics():
         "students_missing_offer": missing_deduped,
         "students_multiple_offers": multi,
         "qs_top100_students": students_top100_count,
+        "qs_top100_students_pct": qs_top100_students_pct,
         "qs_top100_offers_count": qs_top100_offers_count,
         "qs_top100_offers_pct": qs_top100_offers_pct,
         "qs_top100_offers": qs_top100_offers,
     }
 
 
+@app.get("/api/universities")
+def get_universities():
+    """List universities with students (name + ID) who received an offer from each. Sorted by QS rank."""
+    # Build name -> student_code from cohort so we can fill missing IDs
+    try:
+        by_pathway = get_grades_by_pathway(GRADES_EXCEL_PATH)
+        norm_to_codes: dict[str, list[str]] = {}
+        for students in by_pathway.values():
+            for s in students:
+                norm = _normalize_name(s.get("student_name") or s.get("english_name") or "")
+                if norm:
+                    norm_to_codes.setdefault(norm, []).append(s["student_code"])
+    except Exception:
+        norm_to_codes = {}
+
+    with db.get_db() as conn:
+        rows = conn.execute(
+            "SELECT university, student_code, student_name FROM offers ORDER BY university, student_name"
+        ).fetchall()
+    uni_to_students: dict[str, list[dict[str, str]]] = {}
+    uni_seen: dict[str, set[str]] = {}
+    for uni, code, name in rows:
+        uni = (uni or "").strip() or "Unknown"
+        code = (code or "").strip() or ""
+        name = (name or "").strip() or ""
+        if not code and name:
+            offer_norm = _normalize_name(name)
+            codes = norm_to_codes.get(offer_norm, [])
+            if not codes and offer_norm:
+                # Match "Mulan RMIT" to cohort "Mulan": cohort name as word-prefix of offer name
+                for cohort_norm, codelist in norm_to_codes.items():
+                    if cohort_norm and (offer_norm == cohort_norm or offer_norm.startswith(cohort_norm + " ")):
+                        codes = codelist
+                        break
+            code = codes[0] if codes else ""
+        key = code if code else (name if name else None)
+        if not key:
+            continue
+        if uni not in uni_to_students:
+            uni_to_students[uni] = []
+            uni_seen[uni] = set()
+        if key not in uni_seen[uni]:
+            uni_seen[uni].add(key)
+            uni_to_students[uni].append({"student_code": code or "—", "student_name": name or "—"})
+    # Sort by QS rank (lowest first), then unranked by name
+    out = []
+    for uni, students in uni_to_students.items():
+        rank = get_qs_rank(uni)
+        out.append({
+            "university": uni,
+            "qs_rank": rank,
+            "students": students,
+        })
+    out.sort(key=lambda x: (x["qs_rank"] if x["qs_rank"] is not None else 9999, x["university"].lower()))
+    return {"universities": out}
+
+
 @app.get("/api/offers/all")
 def get_all_offers(limit: int = 200):
     """List all offers in the DB (newest first). Use to verify uploads for students not in the grades Excel (e.g. Mulan)."""
+    # Build name -> student_code from cohort so we can infer IDs for offers that
+    # were uploaded without a student_code (older uploads, manual entries).
+    try:
+        by_pathway = get_grades_by_pathway(GRADES_EXCEL_PATH)
+        norm_to_codes: dict[str, list[str]] = {}
+        for students in by_pathway.values():
+            for s in students:
+                norm = _normalize_name(s.get("student_name") or s.get("english_name") or "")
+                if norm:
+                    norm_to_codes.setdefault(norm, []).append(s["student_code"])
+    except Exception:
+        norm_to_codes = {}
+
     with db.get_db() as conn:
         rows = conn.execute(
             """
-            SELECT id, student_name, university, course_name, course_code, offer_type, offer_date, file_name, created_at
+            SELECT id, student_code, student_name, university, course_name, course_code, offer_type, offer_date, file_name, created_at
             FROM offers ORDER BY created_at DESC LIMIT ?
             """,
             (max(1, min(limit, 500)),),
         ).fetchall()
-    return {
-        "total": len(rows),
-        "offers": [
+    offers: list[dict[str, str]] = []
+    for r in rows:
+        code = (r[1] or "").strip()
+        name = (r[2] or "").strip()
+        if not code and name:
+            offer_norm = _normalize_name(name)
+            codes = norm_to_codes.get(offer_norm, [])
+            if not codes and offer_norm:
+                # Match "Mulan RMIT" to cohort "Mulan": cohort name as word-prefix of offer name
+                for cohort_norm, codelist in norm_to_codes.items():
+                    if cohort_norm and (
+                        offer_norm == cohort_norm or offer_norm.startswith(cohort_norm + " ")
+                    ):
+                        codes = codelist
+                        break
+            code = codes[0] if codes else ""
+        offers.append(
             {
                 "id": r[0],
-                "student_name": r[1] or "",
-                "university": r[2] or "",
-                "course_name": r[3] or "",
-                "course_code": r[4] or "",
-                "offer_type": r[5] or "",
-                "offer_date": r[6] or "",
-                "file_name": r[7] or "",
-                "created_at": r[8] or "",
+                "student_code": code,
+                "student_name": name,
+                "university": r[3] or "",
+                "course_name": r[4] or "",
+                "course_code": r[5] or "",
+                "offer_type": r[6] or "",
+                "offer_date": r[7] or "",
+                "file_name": r[8] or "",
+                "created_at": r[9] or "",
             }
-            for r in rows
-        ],
-    }
+        )
+    return {"total": len(offers), "offers": offers}
 
 
 @app.patch("/api/offers/{offer_id}")
@@ -585,46 +753,53 @@ def get_students():
 
     with db.get_db() as conn:
         rows = conn.execute(
-            "SELECT student_name, university, course_name, course_code, offer_type, offer_date,"
+            "SELECT student_code, student_name, university, course_name, course_code, offer_type, offer_date,"
             " reply_deadline, subject_requirement, english_requirement,"
             " aes_overall, aes_listening, aes_reading, aes_writing, aes_speaking, required_scores_json"
             " FROM offers ORDER BY offer_date DESC"
         ).fetchall()
 
+    code_to_offers: dict[str, list] = {}
     name_to_offers: dict[str, list] = {}
     for r in rows:
-        name = _normalize_name(r[0])
-        if not name:
-            continue
+        code = (r[0] or "").strip() or None
+        name = _normalize_name(r[1])
         req_scores: dict = {}
         try:
-            if r[14]:
-                req_scores = _json.loads(r[14])
+            if r[15]:
+                req_scores = _json.loads(r[15])
         except Exception:
             pass
-        name_to_offers.setdefault(name, []).append({
-            "university":          r[1]  or "",
-            "course_name":         r[2]  or "",
-            "course_code":         r[3]  or "",
-            "offer_type":          r[4]  or "",
-            "offer_date":          r[5]  or "",
-            "subject_requirement": r[7]  or "",
-            "english_requirement": r[8]  or "",
-            "aes_overall":         r[9]  or "",
-            "aes_listening":       r[10] or "",
-            "aes_reading":         r[11] or "",
-            "aes_writing":         r[12] or "",
-            "aes_speaking":        r[13] or "",
+        offer_entry = {
+            "university":          r[2]  or "",
+            "course_name":         r[3]  or "",
+            "course_code":         r[4]  or "",
+            "offer_type":          r[5]  or "",
+            "offer_date":          r[6]  or "",
+            "subject_requirement": r[8]  or "",
+            "english_requirement": r[9]  or "",
+            "aes_overall":         r[10] or "",
+            "aes_listening":       r[11] or "",
+            "aes_reading":         r[12] or "",
+            "aes_writing":         r[13] or "",
+            "aes_speaking":        r[14] or "",
             "required_scores":     req_scores,
-            "qs_rank":             get_qs_rank(r[1] or ""),
-        })
+            "qs_rank":             get_qs_rank(r[2] or ""),
+        }
+        if code:
+            code_to_offers.setdefault(code, []).append(offer_entry)
+        if name:
+            name_to_offers.setdefault(name, []).append(offer_entry)
 
     pathway_order = {"Business Mgmt": 0, "Media": 1, "Computing": 2}
     students = []
     for pathway, pathway_students in by_pathway.items():
         for s in pathway_students:
             norm = _normalize_name(s["student_name"] or s["english_name"])
-            offers = name_to_offers.get(norm, [])
+            # Merge offers by code AND name so we show all (e.g. Durham with no code + Nottingham with code)
+            code_offers = code_to_offers.get(s["student_code"], [])
+            name_offers = name_to_offers.get(norm, []) if norm else []
+            offers = _merge_offers(code_offers, name_offers)
             qs_ranks = [o["qs_rank"] for o in offers if o["qs_rank"] is not None]
             types = {(o["offer_type"] or "").lower() for o in offers}
             if "unconditional" in types:
@@ -669,51 +844,16 @@ def get_students():
 
 
 @app.post("/api/grades/import")
-async def import_grades_from_excel(file: UploadFile | None = File(None)):
-    """Import current grades into student_grades table.
-    - If no file uploaded: use the configured Excel path (BELLERBYS_GRADES_EXCEL or default).
-    - If file uploaded: use that file (Excel .xlsx with same layout: Student ID, Pathway, grade columns).
-    """
+async def import_grades_from_excel():
+    """Import current grades into student_grades table from the configured Excel path."""
     from datetime import datetime
-    import tempfile
 
-    path_to_use = None
-    temp_path = None
-    if file and file.filename:
-        ext = (file.filename or "").lower()
-        if not (ext.endswith(".xlsx") or ext.endswith(".xls")):
-            raise HTTPException(status_code=400, detail="Please upload an Excel file (.xlsx or .xls).")
-        try:
-            content = await file.read()
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
-        if not content:
-            raise HTTPException(status_code=400, detail="File is empty.")
-        try:
-            fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
-            os.write(fd, content)
-            os.close(fd)
-            path_to_use = temp_path
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save upload: {e}")
-    else:
-        path_to_use = GRADES_EXCEL_PATH
+    path_to_use = GRADES_EXCEL_PATH
 
     try:
         students_with_grades = load_grades_excel_with_grades(path_to_use)
     except Exception as e:
-        if temp_path and os.path.isfile(temp_path):
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
         raise HTTPException(status_code=500, detail=f"Failed to read Excel: {e}")
-    finally:
-        if temp_path and os.path.isfile(temp_path):
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
 
     # AES/IELTS are left blank on import; staff enter manually. Clear any existing AES for these students.
     AES_SUBJECTS = ("AES", "AES Listening", "AES Reading", "AES Writing", "AES Speaking")
@@ -778,7 +918,10 @@ def update_student_grades(student_code: str, body: dict = Body(...)):
 
 @app.get("/")
 def index():
-    return FileResponse(os.path.join(BASE, "static", "index.html"))
+    return FileResponse(
+        os.path.join(BASE, "static", "index.html"),
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"},
+    )
 
 
 app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")

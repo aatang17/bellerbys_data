@@ -6,6 +6,7 @@ import os
 import re
 
 from google import genai
+from google.genai import types
 import PIL.Image
 
 
@@ -121,28 +122,37 @@ def parse_image_with_gemini(image_path: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# PDF extraction (pdfplumber → Gemini)
+# PDF extraction (Gemini reads the whole PDF)
 # ---------------------------------------------------------------------------
 
-def parse_pdf_with_pdfplumber(pdf_path: str) -> dict:
-    """Extract text from a PDF with pdfplumber, then parse with Gemini."""
-    try:
-        import pdfplumber
-    except ImportError:
-        raise RuntimeError("pdfplumber is required: pip install pdfplumber")
-
-    text_parts = []
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            t = page.extract_text()
-            if t:
-                text_parts.append(t)
-
-    full_text = "\n".join(text_parts)
+def parse_pdf_from_bytes(pdf_bytes: bytes) -> dict:
+    """Send PDF bytes to Gemini for extraction. Use this for uploads so we parse exactly what was received."""
+    if not pdf_bytes:
+        raise ValueError("PDF file is empty")
     client = _gemini_client()
+    pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=[_PROMPT + "\n\nThe offer letter text is:\n" + full_text],
+        contents=[_PROMPT, pdf_part],
     )
-    data = json.loads(_strip_code_fences(response.text.strip()))
+    raw_text = (response.text or "").strip()
+    data = json.loads(_strip_code_fences(raw_text))
+    # Diagnostic: log what Gemini returned (so we can see why upload shows blank)
+    _log_diagnostic("parse_pdf", {"pdf_len": len(pdf_bytes), "response_len": len(raw_text), "university": data.get("university"), "course_name": data.get("course_name"), "preview": raw_text[:400] if raw_text else ""})
     return _map_response(data)
+
+
+def _log_diagnostic(tag: str, info: dict) -> None:
+    try:
+        log_path = os.path.join(os.path.dirname(__file__), "upload_diagnostic.log")
+        with open(log_path, "a") as f:
+            f.write(f"[{tag}] {json.dumps(info)}\n")
+    except Exception:
+        pass
+
+
+def parse_pdf_from_path(pdf_path: str) -> dict:
+    """Read a PDF from disk and send it to Gemini for extraction (e.g. for CLI or tests)."""
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+    return parse_pdf_from_bytes(pdf_bytes)

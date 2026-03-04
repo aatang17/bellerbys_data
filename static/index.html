@@ -59,16 +59,22 @@
           <div class="text-sm text-slate-500 leading-tight mt-0.5">Progression Status</div>
         </div>
       </div>
-      <div class="relative flex items-center flex-shrink-0">
-        <input type="file" id="pdfFile" accept=".pdf,.png,.jpg,.jpeg" multiple class="hidden" />
-        <span id="uploadStatus" class="absolute right-full mr-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 whitespace-nowrap hidden pointer-events-none"></span>
-        <button type="button" id="uploadBtn"
+      <div class="flex items-center flex-shrink-0 gap-2">
+        <button type="button" id="uploadHelpTrigger" aria-label="How to upload" title="How to upload"
+          class="upload-help-trigger flex items-center justify-center w-8 h-8 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-100 hover:border-slate-400 transition-colors shrink-0">
+          <span class="text-sm font-semibold leading-none">?</span>
+        </button>
+        <div class="relative flex items-center">
+          <input type="file" id="pdfFile" accept=".pdf,.png,.jpg,.jpeg" multiple class="hidden" />
+          <span id="uploadStatus" class="absolute right-full mr-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 whitespace-nowrap hidden pointer-events-none"></span>
+          <button type="button" id="uploadBtn"
           class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:opacity-70 disabled:cursor-wait text-white text-sm font-medium rounded-lg transition-colors duration-150 shadow-sm">
           <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
           <span>Upload Offer</span>
         </button>
+        </div>
       </div>
     </div>
   </header>
@@ -98,11 +104,18 @@
           class="tab-btn tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-150">
           Students
         </button>
+        <button type="button" data-pathway="universities" id="tab-universities"
+          class="tab-btn tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-150">
+          Universities
+        </button>
       </nav>
     </div>
   </div>
 
   <!-- ── Content ───────────────────────────────────────────────────── -->
+  <!-- TAB CONVENTION: For any new tab that shows a list of items, use collapsible sections
+       with <details> and <summary>. Add a common class (e.g. js-collapsible-*) and optional
+       "Expand all" / "Collapse all" buttons so behaviour is consistent across tabs. -->
   <main class="max-w-screen-2xl mx-auto px-6 py-6">
 
     <!-- Shared loading spinner template (cloned per panel via JS) -->
@@ -213,11 +226,6 @@
             class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
             Import from Excel
           </button>
-          <input type="file" id="gradesFileInput" accept=".xlsx,.xls" class="hidden" onchange="importGradesFromFile(this)">
-          <button type="button" onclick="document.getElementById('gradesFileInput').click()" id="btnUploadGrades"
-            class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
-            Upload grades file
-          </button>
           <button onclick="exportStudentsCSV()"
             class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors duration-150 whitespace-nowrap">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -231,6 +239,7 @@
             <table class="w-full text-sm">
               <thead class="bg-slate-50 border-b border-slate-200">
                 <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">#</th>
                   <th class="w-10 px-4 py-3"></th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Code</th>
                   <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
@@ -247,6 +256,17 @@
       </div>
     </div>
 
+    <!-- Universities: collapsible list (details/summary). Convention: new tabs with lists should use the same pattern. -->
+    <div id="panel-universities" class="tab-panel hidden">
+      <div id="loading-universities" class="flex items-center justify-center py-20">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          Loading…
+        </div>
+      </div>
+      <div id="universities-content" class="hidden"></div>
+    </div>
+
     <!-- Analytics -->
     <div id="panel-analytics" class="tab-panel hidden">
       <div id="loading-analytics" class="flex items-center justify-center py-20">
@@ -256,6 +276,21 @@
         </div>
       </div>
       <div id="analytics-content" class="hidden"></div>
+    </div>
+
+    <!-- Upload help modal (short instructions; help trigger hidden during upload so it doesn't overlap status) -->
+    <div id="uploadHelpModal" class="fixed inset-0 z-50 hidden" aria-modal="true">
+      <div class="fixed inset-0 bg-slate-900/50" onclick="closeUploadHelpModal()"></div>
+      <div class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-xl shadow-xl border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 mb-3">How to upload</h3>
+        <p class="text-sm text-slate-600 leading-relaxed mb-4">
+          Click <strong>Upload Offer</strong> and choose PDF or image file(s).<br>
+          The filename must <strong>start with the student ID</strong> (e.g. <code class="text-xs bg-slate-100 px-1 rounded">51111759-Name-University.pdf</code>). The offer will then appear under that student and under the university.
+        </p>
+        <div class="flex justify-end">
+          <button type="button" onclick="closeUploadHelpModal()" class="px-4 py-2 bg-brand-600 text-white hover:bg-brand-700 rounded-lg text-sm font-medium">OK</button>
+        </div>
+      </div>
     </div>
 
     <!-- Edit grades modal -->
@@ -295,6 +330,10 @@
       document.getElementById('pdfFile').click();
     });
 
+    function openUploadHelpModal() { document.getElementById('uploadHelpModal').classList.remove('hidden'); }
+    function closeUploadHelpModal() { document.getElementById('uploadHelpModal').classList.add('hidden'); }
+    document.getElementById('uploadHelpTrigger').addEventListener('click', openUploadHelpModal);
+
     // ── Tab switching ──────────────────────────────────────────────────────
     document.querySelectorAll('#tabNav button').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -311,6 +350,7 @@
 
         if (currentPathway === 'analytics') loadAnalytics();
         else if (currentPathway === 'students') loadStudents();
+        else if (currentPathway === 'universities') loadUniversities();
         else loadPathway(currentPathway);
       });
     });
@@ -569,13 +609,13 @@
 
       // ── Row 1: Summary stat cards ──────────────────────────────────────
       html += `<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">`;
-      const qsOffersPct = d.qs_top100_offers_pct ?? 0;
-      const qsOffersCount = d.qs_top100_offers_count ?? 0;
+      const qsStudentsPct = d.qs_top100_students_pct ?? 0;
+      const qsStudentsCount = d.qs_top100_students ?? 0;
       html += statCard(d.total_students,          'Total students',    'Across all pathways',              'text-slate-900');
       html += statCard(d.total_offers,             'Offers uploaded',   'In the database',                  'text-brand-600');
       html += statCard(coverage + '%',             'Coverage',          `${d.students_with_offers} of ${d.total_students} students`, 'text-emerald-600');
       html += statCard(cond,                       'Conditional',       'offers',                            'text-amber-600');
-      html += statCard(qsOffersPct + '%',          '% of QS 100 offers', `${qsOffersCount} of ${d.total_offers} offers`,            'text-brand-600');
+      html += statCard(qsStudentsPct + '%',        'Students with QS 100', `${qsStudentsCount} of ${d.total_students} students`,      'text-brand-600');
       html += statCard(d.students_without_offers,  'Missing offers',    'Need uploading',                    d.students_without_offers > 0 ? 'text-red-500' : 'text-slate-400');
       html += `</div>`;
 
@@ -627,71 +667,14 @@
         </div>`;
       }
 
-      // ── Row 5: Missing students + Multiple offers ──────────────────────
-      html += `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">`;
-
-      // Missing students
-      if (d.students_missing_offer.length) {
-        const chips = d.students_missing_offer.map(s =>
-          `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10">
-            ${esc(s.student_name)}
-            <span class="text-red-400 font-normal opacity-75">${esc(s.pathway)}</span>
-          </span>`
-        ).join('');
-        html += card('Students without an offer',
-          `<div class="p-5"><div class="flex flex-wrap gap-2">${chips}</div></div>`,
-          { text: d.students_missing_offer.length, cls: 'bg-red-50 text-red-700' },
-          'lg:col-span-2');
-      } else {
-        html += card('Students without an offer',
-          `<div class="p-5 flex items-center gap-2 text-emerald-600 text-sm font-medium">
-            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            All students have at least one offer uploaded
-          </div>`,
-          null, 'lg:col-span-2');
-      }
-
-      // Multiple offers
-      if (d.students_multiple_offers.length) {
-        const rows = d.students_multiple_offers.map((s, i) =>
-          `<tr class="${i % 2 !== 0 ? 'bg-slate-50/50' : ''} hover:bg-brand-50/30 transition-colors duration-75">
-            <td class="px-4 py-2.5 text-sm text-slate-700">${esc(s.name)}</td>
-            <td class="px-4 py-2.5 text-right">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700">${s.count}</span>
-            </td>
-          </tr>`
-        ).join('');
-        html += card('Students with multiple offers',
-          `<div class="overflow-hidden">
-            <table class="w-full text-sm">
-              <thead class="bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Student</th>
-                  <th class="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Offers</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">${rows}</tbody>
-            </table>
-          </div>`,
-          { text: d.students_multiple_offers.length, cls: 'bg-brand-50 text-brand-700' });
-      } else {
-        html += card('Students with multiple offers',
-          `<div class="p-5 text-slate-400 text-sm">No students have multiple offers yet.</div>`);
-      }
-
-      html += `</div>`; // end bottom row
-
       // ── Recent offers (all students, including those not in grades Excel) ──
       if (d.recent_offers && d.recent_offers.length) {
         const recentRows = d.recent_offers.slice(0, 25).map((o, i) =>
           `<tr class="${i % 2 !== 0 ? 'bg-slate-50/50' : ''} hover:bg-slate-50 transition-colors duration-75" data-offer-id="${o.id}">
             <td class="px-4 py-2.5">
-              <div class="flex items-center gap-1.5">
-                <input type="text" value="${esc(o.student_name) || ''}" placeholder="Student name"
-                  class="offer-name-input w-28 min-w-0 px-2 py-1 text-sm border border-slate-200 rounded focus:ring-1 focus:ring-brand-500 focus:border-brand-400"
-                  data-offer-id="${o.id}" />
-                <button type="button" onclick="fixOfferName(${o.id}, this.closest('tr').querySelector('.offer-name-input').value)"
-                  class="flex-shrink-0 px-2 py-1 text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded">Fix name</button>
+              <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span class="text-xs font-mono text-slate-400">${o.student_code ? esc(o.student_code) : '—'}</span>
+                <span class="text-sm text-slate-800">${esc(o.student_name) || '—'}</span>
               </div>
             </td>
             <td class="px-4 py-2.5 text-sm text-slate-700">${esc(o.university)}</td>
@@ -710,7 +693,7 @@
             <table class="w-full text-sm">
               <thead class="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Student (editable)</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Student (ID &amp; name)</th>
                   <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">University</th>
                   <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Course</th>
                   <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
@@ -783,6 +766,8 @@
 
       if (!files.length) return;
 
+      const helpTrigger = document.getElementById('uploadHelpTrigger');
+      if (helpTrigger) helpTrigger.classList.add('hidden');
       btn.disabled = true;
       statusEl.textContent = 'Uploading…';
       statusEl.className = 'absolute right-full mr-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 whitespace-nowrap';
@@ -818,9 +803,13 @@
       if (ok > 0) {
         if (currentPathway === 'analytics') loadAnalytics();
         else if (currentPathway === 'students') loadStudents();
+        else if (currentPathway === 'universities') loadUniversities();
         else loadPathway(currentPathway);
       }
-      setTimeout(() => { statusEl.classList.add('hidden'); }, 4000);
+      setTimeout(() => {
+        statusEl.classList.add('hidden');
+        if (helpTrigger) helpTrigger.classList.remove('hidden');
+      }, 4000);
     });
 
     // ── Score formatter ────────────────────────────────────────────────────
@@ -877,7 +866,7 @@
       countEl.textContent = `${students.length} student${students.length !== 1 ? 's' : ''}`;
 
       if (!students.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-14 text-center text-slate-400 text-sm">No students match the current filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-14 text-center text-slate-400 text-sm">No students match the current filters.</td></tr>`;
         return;
       }
 
@@ -970,12 +959,18 @@
               return `<tr><td class="py-1 pr-4 text-slate-600">${esc(SUBJ_SHORT[subj] || subj)}</td><td class="py-1 pr-4">${yoursCell}</td><td class="py-1 pr-4 text-slate-500">${esc(fmtScore(req))}</td><td class="py-1">${statusCell}</td></tr>`;
             }).concat([averageRow]).join('');
             return `
-          <div class="flex-1 min-w-[260px] px-4 py-3 border border-slate-200 rounded-lg bg-slate-50/50">
+          <div class="grades-vs-box min-w-0 flex flex-col px-4 py-3 border border-slate-200 rounded-lg bg-slate-50/50 h-full">
             <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Your grades vs ${uniName}</div>
             <table class="text-sm w-full"><thead><tr><th class="text-left pr-4 py-1 font-medium text-slate-500">Subject</th><th class="text-left pr-4 py-1 font-medium text-slate-500">Yours</th><th class="text-left pr-4 py-1 font-medium text-slate-500">Required</th><th class="text-left py-1 font-medium text-slate-500">Status</th></tr></thead><tbody>${rows}</tbody></table>
           </div>`;
-          }).join('');
-          analyticsBlock = `<div class="flex flex-wrap gap-4 px-4 py-3 border-b border-slate-200">${blocks}</div>`;
+          });
+          // Multiple rows, 4 equal-sized boxes per row; each box same width and same height within the row
+          const PER_ROW = 4;
+          const rows = [];
+          for (let i = 0; i < blocks.length; i += PER_ROW) {
+            rows.push(blocks.slice(i, i + PER_ROW).join(''));
+          }
+          analyticsBlock = `<div class="px-4 py-3 border-b border-slate-200 space-y-4">${rows.map(rowHtml => `<div class="grid grid-cols-4 gap-4 items-stretch">${rowHtml}</div>`).join('')}</div>`;
         } else if (hasOffers) {
           analyticsBlock = '<div class="px-4 py-2 border-b border-slate-200 bg-slate-50/50 text-xs text-slate-500">No conditional offer to compare with.</div>';
         }
@@ -988,6 +983,7 @@
 
         const subHead = `
           <tr class="bg-slate-100 border-t border-slate-200">
+            <td class="w-12"></td>
             <td class="w-10"></td>
             <td class="pl-4 pr-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">University</td>
             <td class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Course</td>
@@ -1002,7 +998,7 @@
             <td class="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Conditions</td>
           </tr>`;
 
-        const colCount = 11 + subjects.length;
+        const colCount = 12 + subjects.length;
         const subRows = s.offers.map((o, offerIdx) => {
           const qsTag = o.qs_rank
             ? `<span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-brand-50 text-brand-700">#${o.qs_rank}</span>`
@@ -1028,6 +1024,7 @@
           </tr>`;
           const conditionsBtn = `<button type="button" onclick="event.stopPropagation(); toggleOfferConditions('${code}', ${offerIdx})" class="text-xs text-slate-500 hover:text-brand-600 underline">Conditions</button>`;
           return `<tr class="bg-white border-t border-slate-100 hover:bg-brand-50/20 transition-colors duration-75">
+            <td class="w-12"></td>
             <td class="w-10"></td>
             <td class="pl-4 pr-3 py-2.5 text-sm text-slate-800">${esc(o.university)}${qsTag}</td>
             <td class="px-3 py-2.5 text-xs text-slate-600 max-w-[180px]">${esc(o.course_name) || '—'}</td>
@@ -1048,7 +1045,7 @@
           : '<div class="px-4 py-6 text-center text-slate-400 text-sm">No offers yet.</div>';
         const detailRow = `
           <tr id="detail-${code}" class="hidden">
-            <td colspan="7" class="p-0 bg-slate-50 border-b border-slate-200 align-top">
+            <td colspan="8" class="p-0 bg-slate-50 border-b border-slate-200 align-top">
               <div class="min-w-0"><div class="overflow-x-auto">${offersTable}</div>${gradesBlock}${analyticsBlock}</div>
             </td>
           </tr>`;
@@ -1059,6 +1056,7 @@
 
         return `
           <tr class="hover:bg-brand-50/20 transition-colors duration-75 cursor-pointer${rowBg}"${onclick}>
+            <td class="px-4 py-3 text-slate-500 text-sm font-medium">${rowIdx + 1}</td>
             <td class="px-4 py-3 text-center">${chevron}</td>
             <td class="px-4 py-3 font-mono text-xs text-slate-400">${esc(code)}</td>
             <td class="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">${esc(s.student_name)}</td>
@@ -1164,6 +1162,83 @@
       }
     }
 
+    async function loadUniversities() {
+      const loading = document.getElementById('loading-universities');
+      const content = document.getElementById('universities-content');
+      loading.style.display = 'flex';
+      content.classList.add('hidden');
+      try {
+        const data = await fetchJson('/api/universities');
+        loading.style.display = 'none';
+        content.classList.remove('hidden');
+        renderUniversities(data.universities || []);
+      } catch (e) {
+        loading.style.display = 'none';
+        content.classList.remove('hidden');
+        content.innerHTML = `<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 text-red-500 text-sm">Error: ${esc(e.message || 'Unknown error')}</div>`;
+      }
+    }
+
+    // Renders universities as collapsible sections. CONVENTION: Use <details>/<summary> + js-collapsible-* class
+    // and optional Expand all / Collapse all for any new tab that shows a list of items.
+    function renderUniversities(universities) {
+      const content = document.getElementById('universities-content');
+      if (!universities.length) {
+        content.innerHTML =
+          '<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center text-slate-400 text-sm">No offers in the database yet. Upload offer letters to see students by university.</div>';
+        return;
+      }
+      let html = `
+        <div class="flex items-center gap-2 mb-3">
+          <button type="button" onclick="expandAllUniversities()" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200">Expand all</button>
+          <button type="button" onclick="collapseAllUniversities()" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200">Collapse all</button>
+        </div>
+        <div class="space-y-2" id="universities-list">`;
+      universities.forEach(function(uni) {
+        const rows = (uni.students || []).map(function(s, i) {
+          return `<tr class="${i % 2 !== 0 ? 'bg-slate-50/50' : ''} hover:bg-slate-50 transition-colors duration-75">
+            <td class="px-4 py-2.5 font-mono text-xs text-slate-500">${esc(s.student_code)}</td>
+            <td class="px-4 py-2.5 text-sm text-slate-800 font-medium">${esc(s.student_name)}</td>
+          </tr>`;
+        }).join('');
+        const count = (uni.students || []).length;
+        const rank = uni.qs_rank != null ? uni.qs_rank : null;
+        const rankBadge = rank !== null
+          ? `<span class="font-mono text-xs text-slate-400 mr-2">#${rank}</span>`
+          : '';
+        html += `
+          <details class="js-collapsible-university group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <summary class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2 cursor-pointer list-none select-none hover:bg-slate-50/50 transition-colors duration-75 [&::-webkit-details-marker]:hidden">
+              <span class="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                ${rankBadge}
+                <span>${esc(uni.university)}</span>
+                <span class="text-slate-400 font-normal">(${count})</span>
+              </span>
+              <svg class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="overflow-x-auto border-t border-slate-100">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Student ID</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">${rows}</tbody>
+              </table>
+            </div>
+          </details>`;
+      });
+      html += '</div>';
+      content.innerHTML = html;
+    }
+    function expandAllUniversities() {
+      document.querySelectorAll('#universities-list details.js-collapsible-university').forEach(function(el) { el.open = true; });
+    }
+    function collapseAllUniversities() {
+      document.querySelectorAll('#universities-list details.js-collapsible-university').forEach(function(el) { el.open = false; });
+    }
+
     document.getElementById('students-content').addEventListener('click', function(e) {
       const btn = e.target.closest('.student-edit-grades-btn');
       if (btn) openEditGradesModal(btn.getAttribute('data-edit-code') || '');
@@ -1181,25 +1256,6 @@
         alert('Error: ' + (e.message || 'Unknown error'));
       }
       if (btn) { btn.disabled = false; btn.textContent = 'Import from Excel'; }
-    }
-    async function importGradesFromFile(inputEl) {
-      const file = inputEl && inputEl.files && inputEl.files[0];
-      if (!file) return;
-      const btn = document.getElementById('btnUploadGrades');
-      if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
-      try {
-        const form = new FormData();
-        form.append('file', file);
-        const r = await fetch('/api/grades/import', { method: 'POST', body: form });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.detail || data.message || 'Import failed');
-        if (currentPathway === 'students') loadStudents();
-        alert(data.message || 'Import complete.');
-      } catch (e) {
-        alert('Error: ' + (e.message || 'Unknown error'));
-      }
-      inputEl.value = '';
-      if (btn) { btn.disabled = false; btn.textContent = 'Upload grades file'; }
     }
     function openEditGradesModal(code) {
       _editGradesCode = code;

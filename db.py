@@ -44,13 +44,14 @@ def init_db():
             )
         """)
         # Add new columns if upgrading from an older schema
-        for col in ("english_requirement", "subject_requirement"):
+        for col in ("english_requirement", "subject_requirement", "student_code"):
             try:
                 conn.execute(f"ALTER TABLE offers ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:
                 pass  # column already exists
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_university ON offers(university)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_student ON offers(student_name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_student_code ON offers(student_code)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_offer_date ON offers(offer_date)")
 
         conn.execute("""
