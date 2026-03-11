@@ -57,9 +57,29 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(NoCacheMiddleware)
 
+
+@app.exception_handler(Exception)
+def catch_all_exception_handler(request, exc):
+    """Return 500 as JSON with detail so Railway logs and client can show the error."""
+    from fastapi import HTTPException as FastAPIHTTPException
+    from fastapi.responses import JSONResponse
+    if isinstance(exc, FastAPIHTTPException):
+        raise exc
+    import logging
+    logging.getLogger("bellerbys").exception("Unhandled error: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__},
+    )
+
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = Path(os.environ.get("BELLERBYS_UPLOAD_DIR", os.path.join(BASE, "uploads")))
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as e:
+    import logging
+    logging.getLogger("bellerbys").warning("Could not create upload dir %s: %s", UPLOAD_DIR, e)
 
 # Excel grades file: set BELLERBYS_GRADES_EXCEL or use default below
 GRADES_EXCEL_PATH = os.environ.get("BELLERBYS_GRADES_EXCEL") or os.path.join(BASE, "data", "BNBU SAPM - Semester 1 Grades_v2.xlsx")
@@ -370,7 +390,9 @@ def get_grades_pathway(pathway: str):
     try:
         by_pathway = get_grades_by_pathway(GRADES_EXCEL_PATH)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not load grades: {e}")
+        import logging
+        logging.getLogger("bellerbys").warning("Grades Excel not loaded: %s", e)
+        by_pathway = {pathway_key: []}
 
     students = by_pathway.get(pathway_key, [])
 
@@ -738,7 +760,9 @@ def get_students():
     try:
         by_pathway = get_grades_by_pathway(GRADES_EXCEL_PATH)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not load grades: {e}")
+        import logging
+        logging.getLogger("bellerbys").warning("Grades Excel not loaded: %s", e)
+        by_pathway = {"Business Mgmt": [], "Media": [], "Computing": []}
 
     with db.get_db() as conn:
         rows = conn.execute(
