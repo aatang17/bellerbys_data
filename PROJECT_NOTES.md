@@ -25,6 +25,15 @@
 
 ---
 
+## UI convention: collapsible tabs
+
+- **New tabs that show a list of items** (e.g. Universities) should use **collapsible sections** for consistency:
+  - Use `<details>` and `<summary>` for each item.
+  - Add a shared class (e.g. `js-collapsible-*`) so "Expand all" / "Collapse all" can target them.
+  - See the Universities tab in `static/index.html`: convention comment in the main content block, and `renderUniversities()` with `expandAllUniversities()` / `collapseAllUniversities()`.
+
+---
+
 ## Recent changes (add here when you make updates)
 
 - **Tabs:** Business Mgmt, Media, Computing tabs are **hidden** by default. Toggle in `static/index.html`: set `SHOW_PATHWAY_TABS = true` to show them again. Default tab on load is Analytics.
@@ -43,6 +52,14 @@ Copy-paste or adapt these when starting a new chat so the AI has context:
 - *“Students tab: offers have a collapsible Conditions column (Subject / English conditions) on the right.”*
 - *“We want all staff to access the same data; we’re considering/using cloud (e.g. Alibaba Cloud) because staff are in different locations.”*
 - *“Non-technical users should not need GitHub; sharing is via a link or the folder + INSTRUCTIONS_FOR_NON_TECHNICAL_USERS.txt.”*
+
+---
+
+## Known issues / Data corrections
+
+- **Iris Yang vs Iris Chen (different people):** Student **51111798** is **Iris Yang**; **51111738** is **Iris Chen**. Offers are matched by the `student_name` stored in the DB (normalized). If offers were stored as just "Iris", they could attach to the wrong person. **Intended state:** Iris Yang (51111798) should have the correct offers; Iris Chen (51111738) should show **no offers** (blank). Fix: ensure each offer’s `student_name` in the DB matches the Excel name for the correct student (e.g. "Iris Yang" for Yang’s offers). Use the Analytics tab → Recent offers → **Fix name** to set the stored name to the exact Excel name, or run a one-off DB update to set offers from "Iris" to "Iris Yang" so they attach to Yang and Chen is blank.
+- **Student numbers / duplicate names:** The app now ensures **unique display names** per student. If the Excel has two students with the same name (e.g. both "Iris"), the loader disambiguates using First + Last (e.g. "Iris Yang", "Iris Chen") so each person gets the correct offers. Analytics counts **every student row** (by student_code), not by name, so two Irises are never collapsed into one in totals or missing-offer lists.
+- **Count by unique ID:** Offers can store **student_code** (from upload filename, e.g. `51111798-Iris_Yang-RMIT.pdf`). Matching uses student_code first, then falls back to name. Analytics and the Students tab count and attribute offers by **unique student_code**, so each student (ID) is counted once and gets only their own offers.
 
 ---
 

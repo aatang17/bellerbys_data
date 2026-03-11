@@ -65,15 +65,6 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 GRADES_EXCEL_PATH = os.environ.get("BELLERBYS_GRADES_EXCEL") or os.path.join(BASE, "BNBU SAPM - Semester 1 Grades_v2.xlsx")
 
 
-def _log_upload_diagnostic(tag: str, info: dict) -> None:
-    try:
-        log_path = Path(BASE) / "upload_diagnostic.log"
-        with open(log_path, "a") as f:
-            f.write(f"[{tag}] {json.dumps(info)}\n")
-    except Exception:
-        pass
-
-
 def _student_id_from_filename(file_name: str) -> str | None:
     """Extract student ID from start of filename. E.g. '12345 RMIT.pdf', '12345_Mulan_RMIT.pdf' -> '12345'."""
     if not file_name:
@@ -156,9 +147,7 @@ async def upload_offer(
 
     try:
         if _is_pdf(file.filename):
-            _log_upload_diagnostic("pdf_upload", {"filename": file.filename, "bytes_received": len(contents)})
             data = parse_pdf_from_bytes(contents)
-            _log_upload_diagnostic("pdf_parsed", {"university": data.get("university"), "course_name": data.get("course_name")})
             file_path.write_bytes(contents)
         elif _is_image(file.filename):
             file_path.write_bytes(contents)

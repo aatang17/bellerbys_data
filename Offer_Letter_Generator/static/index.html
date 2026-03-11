@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offer Letter Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fef2f1', 100: '#fde3e1', 200: '#fbcbc8', 300: '#f7a4a0',
+              400: '#f17470', 500: '#e5463f', 600: '#cc2016', 700: '#aa1a0f',
+              800: '#8c180e', 900: '#751912',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .tab-active { color: #cc2016 !important; border-bottom-color: #cc2016 !important; }
+    .tab-inactive { color: #64748b; border-bottom-color: transparent; }
+    .tab-inactive:hover { color: #334155; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900 antialiased">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
+      <img src="/static/bellerbys-logo.png" alt="Bellerbys Global" class="h-12 w-auto flex-shrink-0" />
+      <div>
+        <h1 class="text-lg font-semibold text-slate-800">Offer Letter Generator</h1>
+        <p class="text-sm text-slate-500 mt-0.5">Bellerbys GBA — generate offer letters from template</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="bg-white border-b border-slate-200 relative z-30">
+    <div class="max-w-4xl mx-auto px-6">
+      <nav class="flex -mb-px gap-1" role="tablist">
+        <button type="button" role="tab" data-tab="generate" class="tab-btn tab-active px-4 py-3.5 text-sm font-medium border-b-2 cursor-pointer">Generate</button>
+        <button type="button" role="tab" data-tab="settings" class="tab-btn tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 cursor-pointer">Settings</button>
+        <button type="button" role="tab" data-tab="history" class="tab-btn tab-inactive px-4 py-3.5 text-sm font-medium border-b-2 cursor-pointer">Generated letters</button>
+      </nav>
+    </div>
+  </div>
+
+  <main class="max-w-4xl mx-auto px-6 py-6">
+    <!-- Generate -->
+    <section id="panel-generate" class="panel">
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+        <h2 class="text-base font-semibold text-slate-800 mb-4">Student details</h2>
+        <form id="formGenerate" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Student ID *</label>
+              <input type="text" name="student_id" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g. 2601270" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Full name (English) *</label>
+              <input type="text" name="student_name" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g. Kanta Koizumi" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Name (中文)</label>
+              <input type="text" name="name_zh" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g. 小泉環太" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Date of birth</label>
+              <input type="date" name="dob" id="dobInput" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <input type="email" name="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="student@example.com" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Program</label>
+            <select name="program" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+              <option value="">— Select program —</option>
+              <option value="Computing & Engineering Foundation">Computing & Engineering Foundation</option>
+              <option value="Business, Finance & Management Foundation">Business, Finance & Management Foundation</option>
+              <option value="Media Foundation">Media Foundation</option>
+            </select>
+          </div>
+          <div class="border-t border-slate-200 pt-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="has_scholarship" id="hasScholarship" class="rounded border-slate-300 text-brand-600" />
+              <span class="text-sm font-medium text-slate-700">Include scholarship</span>
+            </label>
+            <div id="scholarshipFields" class="mt-3 hidden space-y-2">
+              <input type="text" name="scholarship_amount" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g. ¥20,000" />
+              <input type="text" name="scholarship_details" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Optional details (e.g. IELTS 7.0)" />
+            </div>
+          </div>
+          <div class="flex items-center gap-3 pt-2">
+            <button type="submit" id="btnGenerate" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg">Generate letter</button>
+            <span id="generateStatus" class="text-sm text-slate-500"></span>
+          </div>
+        </form>
+        <div id="downloadResult" class="mt-4 hidden p-3 bg-slate-100 rounded-lg">
+          <p class="text-sm text-slate-700">Letter generated.</p>
+          <a id="downloadLink" href="#" class="inline-block mt-2 text-brand-600 hover:underline font-medium text-sm">Download DOCX</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="panel-settings" class="panel hidden">
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+        <h2 class="text-base font-semibold text-slate-800 mb-4">Global variables (same for every letter)</h2>
+        <p class="text-sm text-slate-500 mb-4">Edit these and click Save. They are used to fill the template.</p>
+        <form id="formSettings" class="space-y-3">
+          <div id="settingsFields"></div>
+          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg">Save</button>
+        </form>
+        <p id="settingsStatus" class="mt-3 text-sm text-slate-500"></p>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section id="panel-history" class="panel hidden">
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+        <h2 class="text-base font-semibold text-slate-800 mb-4">Generated letters</h2>
+        <div id="historyList" class="text-sm text-slate-500">Loading…</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API = "";
+    let currentTab = "generate";
+
+    function initTabs() {
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        currentTab = btn.getAttribute("data-tab") || "";
+        document.querySelectorAll(".tab-btn").forEach((b) => {
+          b.classList.remove("tab-active");
+          b.classList.add("tab-inactive");
+        });
+        btn.classList.add("tab-active");
+        btn.classList.remove("tab-inactive");
+        document.querySelectorAll(".panel").forEach((p) => p.classList.add("hidden"));
+        const panel = document.getElementById("panel-" + currentTab);
+        if (panel) panel.classList.remove("hidden");
+        if (currentTab === "history") loadHistory();
+        if (currentTab === "settings") loadSettings();
+      });
+    });
+    }
+
+    function init() {
+      initTabs();
+      document.getElementById("hasScholarship").addEventListener("change", (e) => {
+      document.getElementById("scholarshipFields").classList.toggle("hidden", !e.target.checked);
+    });
+
+    document.getElementById("formGenerate").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const status = document.getElementById("generateStatus");
+      const result = document.getElementById("downloadResult");
+      const link = document.getElementById("downloadLink");
+      status.textContent = "Generating…";
+      result.classList.add("hidden");
+      const body = {
+        student_id: form.student_id.value.trim(),
+        student_name: form.student_name.value.trim(),
+        name_zh: form.name_zh.value.trim(),
+        dob: (form.dob && form.dob.value) ? form.dob.value.trim() : "",
+        email: form.email.value.trim(),
+        program: (form.program && form.program.value) ? form.program.value.trim() : "",
+        scholarship_amount: form.has_scholarship.checked ? form.scholarship_amount.value.trim() || null : null,
+        scholarship_details: form.has_scholarship.checked ? form.scholarship_details.value.trim() || null : null,
+      };
+      try {
+        const res = await fetch(API + "/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || "Failed to generate");
+        }
+        const data = await res.json();
+        status.textContent = "";
+        link.href = API + data.download_url;
+        link.download = data.file_name;
+        result.classList.remove("hidden");
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+      }
+    });
+    }
+
+    async function loadSettings() {
+      const container = document.getElementById("settingsFields");
+      const status = document.getElementById("settingsStatus");
+      status.textContent = "Loading…";
+      try {
+        const res = await fetch(API + "/api/settings");
+        if (!res.ok) {
+          status.textContent = "Could not load settings (" + res.status + ").";
+          return;
+        }
+        const data = await res.json();
+        container.innerHTML = "";
+        for (const [key, value] of Object.entries(data)) {
+          const div = document.createElement("div");
+          div.className = "mb-3";
+          const safeKey = escapeAttr(String(key));
+          const safeVal = escapeAttr(value == null ? "" : String(value));
+          div.innerHTML = "<label class=\"block text-sm font-medium text-slate-700 mb-1\">" + safeKey + "</label><input type=\"text\" name=\"" + safeKey + "\" value=\"" + safeVal + "\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 text-sm\" />";
+          container.appendChild(div);
+        }
+        status.textContent = "";
+      } catch (e) {
+        status.textContent = "Could not load settings: " + e.message;
+      }
+    }
+
+    function escapeAttr(s) {
+      if (s == null || s === undefined) return "";
+      return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    document.getElementById("formSettings").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const status = document.getElementById("settingsStatus");
+      const settings = {};
+      form.querySelectorAll("input[name]").forEach((inp) => {
+        if (inp.name) settings[inp.name] = inp.value == null ? "" : inp.value;
+      });
+      status.textContent = "Saving…";
+      try {
+        const res = await fetch(API + "/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(settings),
+        });
+        const errData = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          status.textContent = "Error: " + (errData.detail || res.statusText);
+          return;
+        }
+        status.textContent = "Saved.";
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+      }
+    });
+
+    async function loadHistory() {
+      const el = document.getElementById("historyList");
+      try {
+        const res = await fetch(API + "/api/letters");
+        const data = await res.json();
+        if (!data.letters || data.letters.length === 0) {
+          el.innerHTML = "<p class=\"text-slate-500\">No letters generated yet.</p>";
+          return;
+        }
+        el.innerHTML = "<table class=\"w-full text-left border border-slate-200 rounded-lg overflow-hidden\"><thead class=\"bg-slate-100\"><tr><th class=\"px-3 py-2 text-xs font-medium text-slate-600\">Student</th><th class=\"px-3 py-2 text-xs font-medium text-slate-600\">ID</th><th class=\"px-3 py-2 text-xs font-medium text-slate-600\">Date</th><th class=\"px-3 py-2 text-xs font-medium text-slate-600\"></th></tr></thead><tbody></tbody></table>";
+        const tbody = el.querySelector("tbody");
+        data.letters.forEach((l) => {
+          const tr = document.createElement("tr");
+          tr.className = "border-t border-slate-200";
+          const date = l.created_at ? new Date(l.created_at).toLocaleString() : "";
+          tr.innerHTML = `<td class="px-3 py-2">${escapeHtml(l.student_name || "")}</td><td class="px-3 py-2">${escapeHtml(l.student_id || "")}</td><td class="px-3 py-2 text-slate-500">${escapeHtml(date)}</td><td class="px-3 py-2"><a href="${API}/api/letters/${l.id}/download" class="text-brand-600 hover:underline" download>Download</a></td>`;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        el.innerHTML = "<p class=\"text-red-600\">Could not load list.</p>";
+      }
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return "";
+      const div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

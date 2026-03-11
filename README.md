@@ -35,11 +35,20 @@ pip install -r requirements.txt
 
 ## Run
 
+**Terminal 1 – start the app (leave this running):**
 ```bash
-uvicorn app:app --reload --port 8000
+cd Bellerbys
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
+Wait until you see: `Application startup complete`.
 
-Open **http://localhost:8000** to upload PDFs and view/search offers.
+Open **http://127.0.0.1:8000** in your browser (port is **8000**, not 800).
+
+**If using ngrok** – open a **second** terminal (Terminal 2), then run:
+```bash
+ngrok http --host-header=localhost:8000 8000
+```
+Use the `https://...ngrok-free.app` URL ngrok shows. The app must already be running in Terminal 1.
 
 ## Usage
 
@@ -78,6 +87,39 @@ Nobody on your team needs to use GitHub, git, or the command line. Two simple wa
 - **Option 2:** If you sent the folder → they double-click **RUN.command** (Mac) or **RUN.bat** (Windows). First time they need to add a free Gemini API key (steps are in the file).
 
 When you zip the project for them, include: **RUN.command**, **RUN.bat**, **.env.example**, and **INSTRUCTIONS_FOR_NON_TECHNICAL_USERS.txt**.
+
+---
+
+### Ngrok: why it might not work, and a permanent URL
+
+**If `ngrok http 8000` doesn’t work, check:**
+
+1. **App is running first**  
+   In another terminal run:  
+   `uvicorn app:app --host 0.0.0.0 --port 8000`  
+   Then run `ngrok http 8000`. Ngrok only forwards; something must be listening on 8000.
+
+2. **“Endpoint already online” (ERR_NGROK_334)**  
+   Another ngrok tunnel is already using your URL (e.g. another terminal or machine).  
+   - **Fix:** Stop the other tunnel (close that terminal or run `pkill -f ngrok`), then run `ngrok http 8000` again.  
+   - Or run the second tunnel with `ngrok http 8000 --pooling-enabled` if you want two tunnels to share the same URL (load balancing).
+
+3. **Port 8000 in use by something else**  
+   Make sure no other app is using 8000, or run the app on another port (e.g. 8001) and use `ngrok http 8001`.
+
+4. **“400 Server host not allowed”**  
+   The app (or stack) may reject requests whose `Host` header is the ngrok URL.  
+   - **Fix:** Run ngrok with host-header rewrite so the app sees `localhost`:  
+     `ngrok http --host-header=localhost:8000 8000`  
+   Use that ngrok URL in the browser; the tunnel will rewrite the Host header for requests to your app.
+
+5. **See the current tunnel**  
+   While ngrok is running, open **http://127.0.0.1:4040** in your browser. The ngrok inspector shows the public URL and request log.
+
+**Making the URL permanent (same URL every time):**
+
+- **Free:** Sign in at [ngrok](https://ngrok.com) and claim **one free static domain** (e.g. `https://yourname.ngrok-free.app`). It stays the same every time you run ngrok. In the dashboard: **Domains → Create Domain**, then run e.g. `ngrok http 8000 --domain=yourname.ngrok-free.app`.
+- **Paid:** Reserved/custom domains and more tunnels are available on paid plans. Your current URL (e.g. `nicholle-unsegmented-lyn.ngrok-free.dev`) may already be a reserved domain; if so, it is already permanent for your account.
 
 ---
 

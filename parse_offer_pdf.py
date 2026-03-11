@@ -1,5 +1,7 @@
 """
-Extract structured data from offer letter images and PDFs using Gemini 2.5 Flash.
+Extract structured data from offer letter images and PDFs using Gemini.
+Model is configurable via GEMINI_MODEL in .env (default: gemini-2.5-flash).
+Cheaper options: gemini-2.0-flash, gemini-2.0-flash-lite (try extraction quality first).
 """
 import json
 import os
@@ -8,6 +10,9 @@ import re
 from google import genai
 from google.genai import types
 import PIL.Image
+
+# Model for extraction (vision + PDF). Cheaper: gemini-2.0-flash, gemini-2.0-flash-lite
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +119,7 @@ def parse_image_with_gemini(image_path: str) -> dict:
     client = _gemini_client()
     img = PIL.Image.open(image_path)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=GEMINI_MODEL,
         contents=[_PROMPT, img],
     )
     data = json.loads(_strip_code_fences(response.text.strip()))
@@ -132,23 +137,12 @@ def parse_pdf_from_bytes(pdf_bytes: bytes) -> dict:
     client = _gemini_client()
     pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=GEMINI_MODEL,
         contents=[_PROMPT, pdf_part],
     )
     raw_text = (response.text or "").strip()
     data = json.loads(_strip_code_fences(raw_text))
-    # Diagnostic: log what Gemini returned (so we can see why upload shows blank)
-    _log_diagnostic("parse_pdf", {"pdf_len": len(pdf_bytes), "response_len": len(raw_text), "university": data.get("university"), "course_name": data.get("course_name"), "preview": raw_text[:400] if raw_text else ""})
     return _map_response(data)
-
-
-def _log_diagnostic(tag: str, info: dict) -> None:
-    try:
-        log_path = os.path.join(os.path.dirname(__file__), "upload_diagnostic.log")
-        with open(log_path, "a") as f:
-            f.write(f"[{tag}] {json.dumps(info)}\n")
-    except Exception:
-        pass
 
 
 def parse_pdf_from_path(pdf_path: str) -> dict:
