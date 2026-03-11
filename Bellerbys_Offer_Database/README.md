@@ -22,7 +22,7 @@ From each PDF we read:
 ## Setup
 
 ```bash
-cd "Bellerbys Offer Database"
+cd Bellerbys_Offer_Database
 python3 -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -37,7 +37,7 @@ pip install -r requirements.txt
 
 **Terminal 1 – start the app (leave this running):**
 ```bash
-cd "Bellerbys Offer Database"
+cd Bellerbys_Offer_Database
 uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 Wait until you see: `Application startup complete`.
@@ -84,7 +84,7 @@ Nobody on your team needs to use GitHub, git, or the command line. Two simple wa
 2. Send them the link (e.g. `https://abc123.ngrok.io`).
 3. They open it in their browser and use the app. No setup, no installation.
 
-**If they have the folder:** give them this folder (zip "Bellerbys Offer Database"). They double-click **RUN.command** (Mac) or **RUN.bat** (Windows). First time they need to add a free Gemini API key (copy from `.env.example` to `.env` and add the key).
+**If they have the folder:** give them this folder (zip Bellerbys_Offer_Database). They double-click **RUN.command** (Mac) or **RUN.bat** (Windows). First time they need to add a free Gemini API key (copy from `.env.example` to `.env` and add the key).
 
 When you zip the folder for them, include: **RUN.command**, **RUN.bat**, **.env.example**, and this **README.md**.
 
@@ -97,7 +97,7 @@ When you zip the folder for them, include: **RUN.command**, **RUN.bat**, **.env.
 1. **App is running first**  
    In another terminal run:  
    `uvicorn app:app --host 0.0.0.0 --port 8000`  
-   (from inside the "Bellerbys Offer Database" folder.)  
+   (from inside the Bellerbys_Offer_Database folder.)  
    Then run `ngrok http 8000`. Ngrok only forwards; something must be listening on 8000.
 
 2. **"Endpoint already online" (ERR_NGROK_334)**  
@@ -127,14 +127,14 @@ When you zip the folder for them, include: **RUN.command**, **RUN.bat**, **.env.
 ### Option A: They run it on their own computer (with some setup)
 
 1. **Package the project** (don't send your API keys or virtualenv):
-   - Zip the **Bellerbys Offer Database** folder, but **exclude**: `venv/`, `__pycache__/`, `.env`
+   - Zip the **Bellerbys_Offer_Database** folder, but **exclude**: `venv/`, `__pycache__/`, `.env`
    - **Include**: all `.py` files, `static/`, `data/`, `requirements.txt`, `README.md`, `.env.example`
    - **Optional**: include the grades Excel and/or `offers.db` if you want them to see sample students and offers.
 
 2. **They set up and run:**
    ```bash
-   unzip "Bellerbys Offer Database.zip"   # or wherever they put it
-   cd "Bellerbys Offer Database"
+   unzip Bellerbys_Offer_Database.zip   # or wherever they put it
+   cd Bellerbys_Offer_Database
    cp .env.example .env
    # Edit .env and add their own GEMINI_API_KEY (free at https://aistudio.google.com/app/apikey)
    python3 -m venv venv
@@ -152,7 +152,7 @@ Run the app on a server (your machine with a tunnel, or a cloud host) so they ca
 
 - **Quick local tunnel** (they can try it from elsewhere while your app runs):
   ```bash
-  cd "Bellerbys Offer Database"
+  cd Bellerbys_Offer_Database
   uvicorn app:app --host 0.0.0.0 --port 8000
   ```
   Then use a tunnel (e.g. [ngrok](https://ngrok.com) or Cloudflare Tunnel) and send them the public URL. Your `.env` and `offers.db` stay on your machine.

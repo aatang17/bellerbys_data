@@ -30,7 +30,7 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
    - `GEMINI_API_KEY` = your Gemini API key (required for PDF/image extraction).
    - Optional: `BELLERBYS_GRADES_EXCEL` = leave empty to use the default path; if you upload the Excel to the app, set the path (e.g. `/data/grades.xlsx` after adding a volume — see step 5).
 3. Open the **Settings** tab:
-   - **Root Directory:** set to `Bellerbys Offer Database` (so Railway builds and runs from that folder).
+   - **Root Directory:** set to `Bellerbys_Offer_Database` (so Railway builds and runs from that folder).
    - **Build Command:** leave default (Railway will run `pip install -r requirements.txt` from that folder).
    - **Start Command:** leave blank so Railway uses the **Procfile** in that folder (`web: uvicorn app:app --host 0.0.0.0 --port $PORT`).
 4. Click **Deploy** (or push to GitHub; Railway will redeploy on push if you enabled that).
@@ -44,7 +44,7 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
 6. **Public URL:**
    - In **Settings**, open **Networking** → **Generate Domain**. You’ll get a URL like `https://your-app.up.railway.app`. Share this with your team.
 
-**Excel grades file:** The app expects a grades Excel; the default path is `data/BNBU SAPM - Semester 1 Grades_v2.xlsx` inside the `Bellerbys Offer Database` folder. On Railway the same path works. Override with `BELLERBYS_GRADES_EXCEL` if you use a different path (e.g. on a volume).
+**Excel grades file:** The app expects a grades Excel; the default path is `data/BNBU SAPM - Semester 1 Grades_v2.xlsx` inside the `Bellerbys_Offer_Database` folder. On Railway the same path works. Override with `BELLERBYS_GRADES_EXCEL` if you use a different path (e.g. on a volume).
 
 ---
 
@@ -69,7 +69,7 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
 | Item | Bellerbys Offers | Offer Letter Generator |
 |------|------------------|-------------------------|
 | Repo | Same repo | Same repo |
-| Root Directory | `Bellerbys Offer Database` | `Offer_Letter_Generator` |
+| Root Directory | `Bellerbys_Offer_Database` | `Offer_Letter_Generator` |
 | Start | Procfile: `uvicorn app:app --host 0.0.0.0 --port $PORT` | Same, from subfolder |
 | Env vars | `GEMINI_API_KEY`, `BELLERBYS_DB`, `BELLERBYS_UPLOAD_DIR`, optional `BELLERBYS_GRADES_EXCEL` | Optional `OFFER_GENERATOR_DB`, `OFFER_GENERATED_DIR` |
 | Volume | `/data` for DB + uploads | `/data` for DB + generated letters |
