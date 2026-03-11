@@ -31,7 +31,7 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
 
 1. In the project, click the service that was created (one service per repo by default).
 2. Open the **Variables** tab and add:
-   - `GEMINI_API_KEY` = your Gemini API key (required for PDF/image extraction).
+   - **`GEMINI_API_KEY`** = your Gemini API key (**required** — without it, offer extraction returns no data and uploads fail or save empty rows). Get a free key at [Google AI Studio](https://aistudio.google.com/app/apikey).
    - Optional: `BELLERBYS_GRADES_EXCEL` = leave empty to use the default path; if you upload the Excel to the app, set the path (e.g. `/data/grades.xlsx` after adding a volume — see step 5).
 3. Open the **Settings** tab:
    - **Root Directory:** leave blank to use the root `Dockerfile`, or set to `Bellerbys_Offer_Database` to use Railpack.
@@ -48,6 +48,10 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
    - In **Settings**, open **Networking** → **Generate Domain**. You’ll get a URL like `https://your-app.up.railway.app`. Share this with your team.
 
 **Excel grades file:** The app expects a grades Excel; the default path is `data/BNBU SAPM - Semester 1 Grades_v2.xlsx` inside the `Bellerbys_Offer_Database` folder. On Railway the same path works. Override with `BELLERBYS_GRADES_EXCEL` if you use a different path (e.g. on a volume).
+
+**Missing offer data or wrong count (e.g. 41 instead of 64)?**
+- **Offer info empty:** Set **GEMINI_API_KEY** in the service **Variables**. Without it, extraction cannot fill university, course, conditions, etc. Redeploy after adding the variable.
+- **Different count:** Railway’s database is separate from your local one. To get the same 64 offers on Railway, either (1) re-upload the offer letters on the deployed app (with GEMINI_API_KEY set), or (2) replace the DB on the volume: copy your local `offers.db` into the volume (e.g. via a one-off run or by downloading from Railway’s volume and uploading your file, if your host supports it).
 
 ---
 

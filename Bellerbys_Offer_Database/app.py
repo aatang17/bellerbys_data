@@ -111,6 +111,12 @@ def _student_name_from_filename(file_name: str) -> str | None:
 
 @app.on_event("startup")
 def startup():
+    if not os.environ.get("GEMINI_API_KEY"):
+        import logging
+        logging.getLogger("bellerbys").warning(
+            "GEMINI_API_KEY is not set. PDF/image extraction will fail. "
+            "Add it in Railway Variables (or .env locally). Get a free key at https://aistudio.google.com/app/apikey",
+        )
     db.init_db()
     # Remove excluded students (e.g. Cici, Vivian) from offers and student_grades
     excluded_lower = [n.strip().lower() for n in EXCLUDED_STUDENT_NAMES if n]
@@ -178,6 +184,15 @@ async def upload_offer(
     except Exception as e:
         file_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"Could not parse file: {e}")
+
+    # Reject if extraction returned no real data (e.g. missing or invalid GEMINI_API_KEY)
+    if not (data.get("university") or data.get("course_name")):
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail="Extraction returned no offer data (university/course empty). "
+                   "Set GEMINI_API_KEY in your environment (e.g. Railway Variables). Get a free key at https://aistudio.google.com/app/apikey",
+        )
 
     # Require filename to start with a student ID that is in the grades Excel (reject students not in cohort)
     student_code_from_file = _student_id_from_filename(file.filename)
