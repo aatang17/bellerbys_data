@@ -40,11 +40,22 @@ def init_db():
                 subject_requirement TEXT,
                 contact_email TEXT,
                 file_name TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                student_code TEXT,
+                aes_overall TEXT,
+                aes_listening TEXT,
+                aes_reading TEXT,
+                aes_writing TEXT,
+                aes_speaking TEXT,
+                required_scores_json TEXT
             )
         """)
         # Add new columns if upgrading from an older schema
-        for col in ("english_requirement", "subject_requirement", "student_code"):
+        for col in (
+            "english_requirement", "subject_requirement", "student_code",
+            "aes_overall", "aes_listening", "aes_reading", "aes_writing", "aes_speaking",
+            "required_scores_json",
+        ):
             try:
                 conn.execute(f"ALTER TABLE offers ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:
