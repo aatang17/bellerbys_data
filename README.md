@@ -55,7 +55,9 @@ Use the `https://...ngrok-free.app` URL ngrok shows. The app must already be run
 1. **Upload** — Choose a PDF or image (PNG/JPG) and optionally type the student name; click “Upload and extract”.
 2. **View** — The table lists all offers; use the filters to search by university or student.
 
-Database file: `offers.db` in the project folder (override with `BELLERBYS_DB`). Uploaded files are kept in `uploads/`.
+Database file: `offers.db` in the project folder (override with `BELLERBYS_DB`). Uploaded files are kept in `uploads/`. Grades Excel and QS rankings Excel live in `data/` (override with `BELLERBYS_GRADES_EXCEL` if needed).
+
+**Repo layout:** App code and `static/` at root; `data/` for Excel files; `docs/` for [Railway deployment](docs/RAILWAY.md) and [project notes](docs/PROJECT_NOTES.md); `Offer_Letter_Generator/` for the separate letter-generation app.
 
 ---
 

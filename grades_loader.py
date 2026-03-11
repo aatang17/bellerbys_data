@@ -121,7 +121,7 @@ def load_grades_excel(path: Optional[str] = None) -> list[dict]:
 
     excel_path = path or os.environ.get(
         "BELLERBYS_GRADES_EXCEL",
-        os.path.join(os.path.dirname(__file__), "BNBU SAPM - Semester 1 Grades_v2.xlsx"),
+        os.path.join(os.path.dirname(__file__), "data", "BNBU SAPM - Semester 1 Grades_v2.xlsx"),
     )
     if not os.path.isfile(excel_path):
         return []
@@ -216,7 +216,7 @@ def get_excluded_student_codes(path: Optional[str] = None) -> list[str]:
     # load_grades_excel already filters them out, so we need to read Excel again without that filter
     excel_path = path or os.environ.get(
         "BELLERBYS_GRADES_EXCEL",
-        os.path.join(os.path.dirname(__file__), "BNBU SAPM - Semester 1 Grades_v2.xlsx"),
+        os.path.join(os.path.dirname(__file__), "data", "BNBU SAPM - Semester 1 Grades_v2.xlsx"),
     )
     if not os.path.isfile(excel_path):
         return []
@@ -263,7 +263,7 @@ def load_grades_excel_with_grades(path: Optional[str] = None) -> list[dict]:
 
     excel_path = path or os.path.environ.get(
         "BELLERBYS_GRADES_EXCEL",
-        os.path.join(os.path.dirname(__file__), "BNBU SAPM - Semester 1 Grades_v2.xlsx"),
+        os.path.join(os.path.dirname(__file__), "data", "BNBU SAPM - Semester 1 Grades_v2.xlsx"),
     )
     if not os.path.isfile(excel_path):
         return students

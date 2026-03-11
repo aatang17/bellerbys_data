@@ -2,7 +2,10 @@
 __pycache__/
 *.pyc
 .cursor/
+venv/
 uploads/
 offers.db
+bellerbys.db
 upload_diagnostic.log
 *.log
+.DS_Store

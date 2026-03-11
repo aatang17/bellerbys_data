@@ -47,7 +47,7 @@ QS_TOP_100_FALLBACK: list[tuple[int, str]] = [
 def _load_qs_from_excel() -> list[tuple[int, str]] | None:
     """Load (rank, English name) from 世界大学排名.xlsx (Sheet1, cols 0 and 2). Returns None if file missing or unreadable."""
     base = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base, "世界大学排名.xlsx")
+    path = os.path.join(base, "data", "世界大学排名.xlsx")
     if not os.path.isfile(path):
         return None
     try:

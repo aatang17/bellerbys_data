@@ -62,7 +62,7 @@ UPLOAD_DIR = Path(os.environ.get("BELLERBYS_UPLOAD_DIR", os.path.join(BASE, "upl
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Excel grades file: set BELLERBYS_GRADES_EXCEL or use default below
-GRADES_EXCEL_PATH = os.environ.get("BELLERBYS_GRADES_EXCEL") or os.path.join(BASE, "BNBU SAPM - Semester 1 Grades_v2.xlsx")
+GRADES_EXCEL_PATH = os.environ.get("BELLERBYS_GRADES_EXCEL") or os.path.join(BASE, "data", "BNBU SAPM - Semester 1 Grades_v2.xlsx")
 
 
 def _student_id_from_filename(file_name: str) -> str | None:

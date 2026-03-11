@@ -44,7 +44,7 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
 6. **Public URL:**
    - In **Settings**, open **Networking** → **Generate Domain**. You’ll get a URL like `https://your-app.up.railway.app`. Share this with your team.
 
-**Excel grades file:** The app expects a grades Excel at the path in `BELLERBYS_GRADES_EXCEL`. On Railway you can either (a) commit a default Excel to the repo (e.g. in a `data/` folder) and set `BELLERBYS_GRADES_EXCEL` to that path, or (b) upload it via a one-off script or admin action if you add one. For now, set the variable only if you’ve put the file in the repo or on the volume.
+**Excel grades file:** The app expects a grades Excel; the default path is `data/BNBU SAPM - Semester 1 Grades_v2.xlsx` (in the repo). On Railway the same path works if the repo is deployed with the `data/` folder. Override with `BELLERBYS_GRADES_EXCEL` if you use a different path (e.g. on a volume).
 
 ---
 
