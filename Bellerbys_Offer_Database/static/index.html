@@ -75,7 +75,7 @@
           <span>Upload Offer</span>
         </button>
         <button type="button" id="restoreDbTrigger" title="Upload your local offers.db to replace this database"
-          class="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors shrink-0">
+          class="hidden inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors shrink-0">
           <span>Restore DB</span>
         </button>
         </div>
@@ -672,8 +672,8 @@
 
       let html = '';
 
-      // ── Restore DB (visible in Analytics so users can find it) ──────────
-      html += `<div class="mb-4 flex items-center justify-between gap-2 flex-wrap bg-slate-100/80 border border-slate-200 rounded-xl px-4 py-3">
+      // ── Restore DB (hidden by default; remove "hidden" class to show) ────
+      html += `<div class="hidden mb-4 flex items-center justify-between gap-2 flex-wrap bg-slate-100/80 border border-slate-200 rounded-xl px-4 py-3">
         <span class="text-sm text-slate-600">Replace this database with your local <code class="text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200">offers.db</code> (e.g. from your computer).</span>
         <button type="button" onclick="openRestoreDbModal()" class="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">Restore database</button>
       </div>`;
