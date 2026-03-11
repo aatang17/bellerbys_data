@@ -25,14 +25,17 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
 
 ## 3. Deploy the Bellerbys Offers app (main app)
 
+**Option A – Use the root Dockerfile (easiest):** Leave **Root Directory** blank. The repo has a `Dockerfile` at the root that builds and runs the Bellerbys Offer Database app. Push to GitHub and Railway will build with Docker.
+
+**Option B – Use Railpack:** Set **Root Directory** to `Bellerbys_Offer_Database` in the service **Settings** so Railway builds only from that folder (no Dockerfile needed).
+
 1. In the project, click the service that was created (one service per repo by default).
 2. Open the **Variables** tab and add:
    - `GEMINI_API_KEY` = your Gemini API key (required for PDF/image extraction).
    - Optional: `BELLERBYS_GRADES_EXCEL` = leave empty to use the default path; if you upload the Excel to the app, set the path (e.g. `/data/grades.xlsx` after adding a volume — see step 5).
 3. Open the **Settings** tab:
-   - **Root Directory:** set to `Bellerbys_Offer_Database` (so Railway builds and runs from that folder).
-   - **Build Command:** leave default (Railway will run `pip install -r requirements.txt` from that folder).
-   - **Start Command:** leave blank so Railway uses the **Procfile** in that folder (`web: uvicorn app:app --host 0.0.0.0 --port $PORT`).
+   - **Root Directory:** leave blank to use the root `Dockerfile`, or set to `Bellerbys_Offer_Database` to use Railpack.
+   - **Build / Start:** leave default when using the root Dockerfile; if using Root Directory, start command comes from the Procfile.
 4. Click **Deploy** (or push to GitHub; Railway will redeploy on push if you enabled that).
 5. **Persistent data (DB + uploads):**
    - In the service, go to the **Volumes** tab (or **Storage**).
