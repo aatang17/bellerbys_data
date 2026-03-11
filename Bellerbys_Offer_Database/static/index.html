@@ -305,7 +305,7 @@
         <p class="text-sm text-slate-600 mb-4">
           Upload your local <code class="text-xs bg-slate-100 px-1 rounded">offers.db</code> to replace the current database (e.g. to copy all offers from your computer to Railway). The current DB is backed up as <code class="text-xs bg-slate-100 px-1 rounded">offers.db.bak</code>.
         </p>
-        <p class="text-xs text-slate-400 mb-3">To open this again without a visible button, bookmark or visit this page with <code class="bg-slate-100 px-1 rounded">#restore</code> in the URL (e.g. your-app.up.railway.app/#restore).</p>
+        <p class="text-xs text-slate-400 mb-3">To open this again: use the same URL with <code class="bg-slate-100 px-1 rounded">#restore</code> at the end, or add <code class="bg-slate-100 px-1 rounded">?showRestore=1</code> (e.g. <span id="restoreUrlHint" class="break-all"></span>).</p>
         <input type="file" id="restoreDbFile" accept=".db" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-slate-300 file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100 mb-4" />
         <p id="restoreDbMessage" class="text-sm mb-4 hidden"></p>
         <div class="flex flex-col gap-2 mb-4">
@@ -366,6 +366,8 @@
       msgEl.classList.add('hidden');
       msgEl.classList.remove('text-red-700', 'text-green-700');
       msgEl.textContent = '';
+      const hint = document.getElementById('restoreUrlHint');
+      if (hint) hint.textContent = window.location.origin + window.location.pathname + '#restore';
       document.getElementById('restoreDbModal').classList.remove('hidden');
     }
     function closeRestoreDbModal() { document.getElementById('restoreDbModal').classList.add('hidden'); }
@@ -1404,9 +1406,15 @@
     // ── Init ────────────────────────────────────────────────────────────────
     loadPathway('business-mgmt');
     // Open Restore DB modal when URL has #restore or ?showRestore=1 (no visible button needed)
-    if (window.location.hash === '#restore' || new URLSearchParams(window.location.search).get('showRestore') === '1') {
-      openRestoreDbModal();
+    function maybeOpenRestoreFromUrl() {
+      const hash = (window.location.hash || '').toLowerCase();
+      const q = new URLSearchParams(window.location.search);
+      if (hash.includes('restore') || q.get('showRestore') === '1') {
+        openRestoreDbModal();
+      }
     }
+    setTimeout(maybeOpenRestoreFromUrl, 50);
+    window.addEventListener('hashchange', maybeOpenRestoreFromUrl);
   </script>
 </body>
 </html>
