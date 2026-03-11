@@ -51,7 +51,7 @@ Your repo is at: `https://github.com/aatang17/bellerbys_data.git`
 
 **Missing offer data or wrong count (e.g. 41 instead of 64)?**
 - **Offer info empty:** Set **GEMINI_API_KEY** in the service **Variables**. Without it, extraction cannot fill university, course, conditions, etc. Redeploy after adding the variable.
-- **Different count:** Railway’s database is separate from your local one. To get the same 64 offers on Railway, either (1) re-upload the offer letters on the deployed app (with GEMINI_API_KEY set), or (2) replace the DB on the volume: copy your local `offers.db` into the volume (e.g. via a one-off run or by downloading from Railway’s volume and uploading your file, if your host supports it).
+- **Upload your local database:** Open the deployed app → click **Restore DB** in the header → choose your local `offers.db` (from your computer’s `Bellerbys_Offer_Database` folder, or wherever you run the app locally) → **Upload and replace**. Refresh the page to see all offers and data. The current Railway DB is backed up as `offers.db.bak` before replacement. Optional: set **RESTORE_SECRET** in Variables and send that value in the **X-Restore-Token** header to restrict who can restore (the in-app button does not send the token, so leave RESTORE_SECRET unset if you want to use the button).
 
 ---
 

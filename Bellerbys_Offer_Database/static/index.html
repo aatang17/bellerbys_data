@@ -59,7 +59,7 @@
           <div class="text-sm text-slate-500 leading-tight mt-0.5">Progression Status</div>
         </div>
       </div>
-      <div class="flex items-center flex-shrink-0 gap-2">
+      <div class="flex items-center flex-shrink-0 gap-2 min-w-0 overflow-x-auto">
         <button type="button" id="uploadHelpTrigger" aria-label="How to upload" title="How to upload"
           class="upload-help-trigger flex items-center justify-center w-8 h-8 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-100 hover:border-slate-400 transition-colors shrink-0">
           <span class="text-sm font-semibold leading-none">?</span>
@@ -73,6 +73,10 @@
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
           <span>Upload Offer</span>
+        </button>
+        <button type="button" id="restoreDbTrigger" title="Upload your local offers.db to replace this database"
+          class="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors shrink-0">
+          <span>Restore DB</span>
         </button>
         </div>
       </div>
@@ -293,6 +297,23 @@
       </div>
     </div>
 
+    <!-- Restore database modal -->
+    <div id="restoreDbModal" class="fixed inset-0 z-50 hidden" aria-modal="true">
+      <div class="fixed inset-0 bg-slate-900/50" onclick="closeRestoreDbModal()"></div>
+      <div class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 mb-2">Restore database</h3>
+        <p class="text-sm text-slate-600 mb-4">
+          Upload your local <code class="text-xs bg-slate-100 px-1 rounded">offers.db</code> to replace the current database (e.g. to copy all offers from your computer to Railway). The current DB is backed up as <code class="text-xs bg-slate-100 px-1 rounded">offers.db.bak</code>.
+        </p>
+        <input type="file" id="restoreDbFile" accept=".db" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-slate-300 file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100 mb-4" />
+        <p id="restoreDbMessage" class="text-sm mb-4 hidden"></p>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="closeRestoreDbModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">Cancel</button>
+          <button type="button" id="restoreDbSubmit" class="px-4 py-2 bg-brand-600 text-white hover:bg-brand-700 rounded-lg text-sm font-medium disabled:opacity-70">Upload and replace</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Edit grades modal -->
     <div id="editGradesModal" class="fixed inset-0 z-50 hidden" aria-modal="true">
       <div class="fixed inset-0 bg-slate-900/50" onclick="closeEditGradesModal()"></div>
@@ -333,6 +354,50 @@
     function openUploadHelpModal() { document.getElementById('uploadHelpModal').classList.remove('hidden'); }
     function closeUploadHelpModal() { document.getElementById('uploadHelpModal').classList.add('hidden'); }
     document.getElementById('uploadHelpTrigger').addEventListener('click', openUploadHelpModal);
+
+    function openRestoreDbModal() {
+      document.getElementById('restoreDbFile').value = '';
+      document.getElementById('restoreDbMessage').classList.add('hidden');
+      document.getElementById('restoreDbMessage').textContent = '';
+      document.getElementById('restoreDbModal').classList.remove('hidden');
+    }
+    function closeRestoreDbModal() { document.getElementById('restoreDbModal').classList.add('hidden'); }
+    document.getElementById('restoreDbTrigger').addEventListener('click', openRestoreDbModal);
+    document.getElementById('restoreDbSubmit').addEventListener('click', async () => {
+      const fileInput = document.getElementById('restoreDbFile');
+      const msgEl = document.getElementById('restoreDbMessage');
+      if (!fileInput.files || !fileInput.files[0]) {
+        msgEl.textContent = 'Please choose an offers.db file first.';
+        msgEl.classList.remove('hidden');
+        msgEl.classList.add('text-amber-700');
+        return;
+      }
+      msgEl.classList.add('hidden');
+      document.getElementById('restoreDbSubmit').disabled = true;
+      try {
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        const r = await fetch('/api/admin/restore-db', { method: 'POST', body: formData });
+        const text = await r.text();
+        if (!r.ok) {
+          let detail = text;
+          try { const j = JSON.parse(text); detail = j.detail || text; } catch (_) {}
+          msgEl.textContent = 'Error: ' + detail;
+          msgEl.classList.remove('hidden', 'text-green-700');
+          msgEl.classList.add('text-red-700');
+          return;
+        }
+        msgEl.textContent = 'Database replaced successfully. Refresh the page to see the data.';
+        msgEl.classList.remove('hidden', 'text-red-700');
+        msgEl.classList.add('text-green-700');
+      } catch (e) {
+        msgEl.textContent = 'Error: ' + (e.message || 'Network error');
+        msgEl.classList.remove('hidden', 'text-green-700');
+        msgEl.classList.add('text-red-700');
+      } finally {
+        document.getElementById('restoreDbSubmit').disabled = false;
+      }
+    });
 
     // ── Tab switching ──────────────────────────────────────────────────────
     document.querySelectorAll('#tabNav button').forEach(btn => {
@@ -606,6 +671,12 @@
       }
 
       let html = '';
+
+      // ── Restore DB (visible in Analytics so users can find it) ──────────
+      html += `<div class="mb-4 flex items-center justify-between gap-2 flex-wrap bg-slate-100/80 border border-slate-200 rounded-xl px-4 py-3">
+        <span class="text-sm text-slate-600">Replace this database with your local <code class="text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200">offers.db</code> (e.g. from your computer).</span>
+        <button type="button" onclick="openRestoreDbModal()" class="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">Restore database</button>
+      </div>`;
 
       // ── Row 1: Summary stat cards ──────────────────────────────────────
       html += `<div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">`;

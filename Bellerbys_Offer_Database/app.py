@@ -17,7 +17,7 @@ if _env_path.exists():
             _k, _, _v = _line.partition("=")
             os.environ.setdefault(_k.strip(), _v.strip())
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -942,6 +942,32 @@ def update_student_grades(student_code: str, body: dict = Body(...)):
                     (student_code, subject),
                 )
     return {"student_code": student_code, "updated": True}
+
+
+@app.post("/api/admin/restore-db")
+async def restore_database(request: Request, file: UploadFile = File(..., description="Your local offers.db file")):
+    """Replace the current database with an uploaded offers.db (e.g. from your local app). Optional: set RESTORE_SECRET and send X-Restore-Token header."""
+    secret = os.environ.get("RESTORE_SECRET")
+    if secret:
+        token = (request.headers.get("X-Restore-Token") or "").strip()
+        if token != secret:
+            raise HTTPException(status_code=403, detail="Restore not allowed: missing or invalid X-Restore-Token.")
+    if not file.filename or not file.filename.lower().endswith(".db"):
+        raise HTTPException(status_code=400, detail="Upload must be a .db file (e.g. offers.db).")
+    content = await file.read()
+    if len(content) < 1000:
+        raise HTTPException(status_code=400, detail="File too small to be a valid SQLite database.")
+    db_path = db.DB_PATH
+    backup_path = db_path + ".bak"
+    try:
+        if os.path.exists(db_path):
+            import shutil
+            shutil.copy2(db_path, backup_path)
+        with open(db_path, "wb") as f:
+            f.write(content)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Could not write database: {e}")
+    return {"ok": True, "message": "Database replaced. Previous DB backed up to offers.db.bak if it existed.", "bytes": len(content)}
 
 
 @app.get("/")
