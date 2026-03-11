@@ -970,6 +970,26 @@ async def restore_database(request: Request, file: UploadFile = File(..., descri
     return {"ok": True, "message": "Database replaced. Previous DB backed up to offers.db.bak if it existed.", "bytes": len(content)}
 
 
+@app.post("/api/admin/restore-from-backup")
+async def restore_from_backup(request: Request):
+    """Restore the database from offers.db.bak (created when you last uploaded a DB)."""
+    secret = os.environ.get("RESTORE_SECRET")
+    if secret:
+        token = (request.headers.get("X-Restore-Token") or "").strip()
+        if token != secret:
+            raise HTTPException(status_code=403, detail="Restore not allowed: missing or invalid X-Restore-Token.")
+    db_path = db.DB_PATH
+    backup_path = db_path + ".bak"
+    if not os.path.exists(backup_path):
+        raise HTTPException(status_code=404, detail="No backup found (offers.db.bak). Upload your local offers.db via Restore DB instead.")
+    try:
+        import shutil
+        shutil.copy2(backup_path, db_path)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Could not restore from backup: {e}")
+    return {"ok": True, "message": "Database restored from offers.db.bak. Refresh the page."}
+
+
 @app.get("/")
 def index():
     return FileResponse(

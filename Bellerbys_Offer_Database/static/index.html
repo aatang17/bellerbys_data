@@ -74,7 +74,7 @@
           </svg>
           <span>Upload Offer</span>
         </button>
-        <button type="button" id="restoreDbTrigger" title="Upload your local offers.db to replace this database"
+        <button type="button" id="restoreDbTrigger" title="Upload your local offers.db (open via #restore in URL)"
           class="hidden inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors shrink-0">
           <span>Restore DB</span>
         </button>
@@ -305,8 +305,13 @@
         <p class="text-sm text-slate-600 mb-4">
           Upload your local <code class="text-xs bg-slate-100 px-1 rounded">offers.db</code> to replace the current database (e.g. to copy all offers from your computer to Railway). The current DB is backed up as <code class="text-xs bg-slate-100 px-1 rounded">offers.db.bak</code>.
         </p>
+        <p class="text-xs text-slate-400 mb-3">To open this again without a visible button, bookmark or visit this page with <code class="bg-slate-100 px-1 rounded">#restore</code> in the URL (e.g. your-app.up.railway.app/#restore).</p>
         <input type="file" id="restoreDbFile" accept=".db" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-slate-300 file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100 mb-4" />
         <p id="restoreDbMessage" class="text-sm mb-4 hidden"></p>
+        <div class="flex flex-col gap-2 mb-4">
+          <div class="text-xs text-slate-500 border-t border-slate-100 pt-3 mt-1">If you just lost data, try restoring from the server backup first:</div>
+          <button type="button" id="restoreFromBackupBtn" class="w-full px-4 py-2 border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-sm font-medium">Restore from backup (offers.db.bak)</button>
+        </div>
         <div class="flex justify-end gap-2">
           <button type="button" onclick="closeRestoreDbModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">Cancel</button>
           <button type="button" id="restoreDbSubmit" class="px-4 py-2 bg-brand-600 text-white hover:bg-brand-700 rounded-lg text-sm font-medium disabled:opacity-70">Upload and replace</button>
@@ -357,12 +362,40 @@
 
     function openRestoreDbModal() {
       document.getElementById('restoreDbFile').value = '';
-      document.getElementById('restoreDbMessage').classList.add('hidden');
-      document.getElementById('restoreDbMessage').textContent = '';
+      const msgEl = document.getElementById('restoreDbMessage');
+      msgEl.classList.add('hidden');
+      msgEl.classList.remove('text-red-700', 'text-green-700');
+      msgEl.textContent = '';
       document.getElementById('restoreDbModal').classList.remove('hidden');
     }
     function closeRestoreDbModal() { document.getElementById('restoreDbModal').classList.add('hidden'); }
     document.getElementById('restoreDbTrigger').addEventListener('click', openRestoreDbModal);
+    document.getElementById('restoreFromBackupBtn').addEventListener('click', async () => {
+      const msgEl = document.getElementById('restoreDbMessage');
+      msgEl.classList.add('hidden');
+      document.getElementById('restoreFromBackupBtn').disabled = true;
+      try {
+        const r = await fetch('/api/admin/restore-from-backup', { method: 'POST' });
+        const text = await r.text();
+        if (!r.ok) {
+          let detail = text;
+          try { const j = JSON.parse(text); detail = j.detail || text; } catch (_) {}
+          msgEl.textContent = detail;
+          msgEl.classList.remove('hidden');
+          msgEl.classList.add('text-red-700');
+        } else {
+          const j = JSON.parse(text || '{}');
+          msgEl.textContent = j.message || 'Restored. Refresh the page.';
+          msgEl.classList.remove('hidden');
+          msgEl.classList.add('text-green-700');
+        }
+      } catch (e) {
+        msgEl.textContent = 'Error: ' + (e.message || 'Network error');
+        msgEl.classList.remove('hidden').classList.add('text-red-700');
+      } finally {
+        document.getElementById('restoreFromBackupBtn').disabled = false;
+      }
+    });
     document.getElementById('restoreDbSubmit').addEventListener('click', async () => {
       const fileInput = document.getElementById('restoreDbFile');
       const msgEl = document.getElementById('restoreDbMessage');
@@ -672,7 +705,7 @@
 
       let html = '';
 
-      // ── Restore DB (hidden by default; remove "hidden" class to show) ────
+      // ── Restore DB (hidden; open via URL #restore) ──────────────────────
       html += `<div class="hidden mb-4 flex items-center justify-between gap-2 flex-wrap bg-slate-100/80 border border-slate-200 rounded-xl px-4 py-3">
         <span class="text-sm text-slate-600">Replace this database with your local <code class="text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200">offers.db</code> (e.g. from your computer).</span>
         <button type="button" onclick="openRestoreDbModal()" class="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">Restore database</button>
@@ -1370,6 +1403,10 @@
 
     // ── Init ────────────────────────────────────────────────────────────────
     loadPathway('business-mgmt');
+    // Open Restore DB modal when URL has #restore or ?showRestore=1 (no visible button needed)
+    if (window.location.hash === '#restore' || new URLSearchParams(window.location.search).get('showRestore') === '1') {
+      openRestoreDbModal();
+    }
   </script>
 </body>
 </html>
