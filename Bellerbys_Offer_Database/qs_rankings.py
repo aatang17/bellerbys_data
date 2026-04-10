@@ -137,24 +137,32 @@ _QS_ENTRIES: list[tuple[int, str, frozenset[str]]] = [
 ]
 
 
+_qs_rank_cache: dict[str, int | None] = {}
+
+
 def get_qs_rank(university_name: str) -> int | None:
     """
     Return the QS rank for a university name, or None if not in the rankings list.
     Uses Jaccard similarity on significant words with a disqualifier blocklist.
-    Rankings loaded from 世界大学排名.xlsx when present.
+    Rankings loaded from 世界大学排名.xlsx when present. Results are cached.
     """
     if not university_name or not university_name.strip():
         return None
 
-    lower = university_name.lower()
+    cache_key = university_name.strip().lower()
+    if cache_key in _qs_rank_cache:
+        return _qs_rank_cache[cache_key]
 
-    # Reject known non-QS variants immediately
+    lower = cache_key
+
     for bad in _DISQUALIFIERS:
         if bad in lower:
+            _qs_rank_cache[cache_key] = None
             return None
 
     offer_w = _words(university_name)
     if not offer_w:
+        _qs_rank_cache[cache_key] = None
         return None
 
     best_rank: int | None = None
@@ -166,9 +174,9 @@ def get_qs_rank(university_name: str) -> int | None:
             continue
         union = len(offer_w | qs_w)
         score = inter / union if union else 0
-        # Require ≥0.5 Jaccard AND at least one non-trivial word match
         if score >= 0.5 and score > best_score:
             best_score = score
             best_rank = rank
 
+    _qs_rank_cache[cache_key] = best_rank
     return best_rank

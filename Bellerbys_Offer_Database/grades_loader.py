@@ -6,6 +6,7 @@ Ensures student_name is unique across the cohort (e.g. two "Iris" become "Iris Y
 so offer matching by name attaches to the correct person.
 """
 import os
+import time
 from collections import Counter
 from typing import Optional
 
@@ -112,8 +113,12 @@ def _format_grade_value(val) -> str:
     return f"{v:.1f}%"
 
 
+_grades_cache: dict[str, tuple[float, list[dict]]] = {}
+_CACHE_TTL = 300  # seconds — re-read Excel at most every 5 minutes
+
+
 def load_grades_excel(path: Optional[str] = None) -> list[dict]:
-    """Load Excel and return list of student rows (all pathways)."""
+    """Load Excel and return list of student rows (all pathways). Results are cached for 5 min."""
     try:
         import openpyxl
     except ImportError:
@@ -125,6 +130,11 @@ def load_grades_excel(path: Optional[str] = None) -> list[dict]:
     )
     if not os.path.isfile(excel_path):
         return []
+
+    now = time.monotonic()
+    cached = _grades_cache.get(excel_path)
+    if cached and (now - cached[0]) < _CACHE_TTL:
+        return cached[1]
 
     wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
     sheet_name = "Sep 2025" if "Sep 2025" in wb.sheetnames else wb.sheetnames[0]
@@ -197,6 +207,7 @@ def load_grades_excel(path: Optional[str] = None) -> list[dict]:
     for s in out:
         if s["student_code"] in NAME_OVERRIDES:
             s["student_name"] = NAME_OVERRIDES[s["student_code"]]
+    _grades_cache[excel_path] = (time.monotonic(), out)
     return out
 
 
