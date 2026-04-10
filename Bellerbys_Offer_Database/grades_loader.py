@@ -272,7 +272,7 @@ def load_grades_excel_with_grades(path: Optional[str] = None) -> list[dict]:
     if not students:
         return students
 
-    excel_path = path or os.path.environ.get(
+    excel_path = path or os.environ.get(
         "BELLERBYS_GRADES_EXCEL",
         os.path.join(os.path.dirname(__file__), "data", "BNBU SAPM - Semester 1 Grades_v2.xlsx"),
     )
