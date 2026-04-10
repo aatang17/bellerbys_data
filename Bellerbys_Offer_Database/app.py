@@ -113,13 +113,17 @@ def _student_name_from_filename(file_name: str) -> str | None:
 
 @app.on_event("startup")
 def startup():
+    import logging
+    log = logging.getLogger("bellerbys")
     if not os.environ.get("GEMINI_API_KEY"):
-        import logging
-        logging.getLogger("bellerbys").warning(
+        log.warning(
             "GEMINI_API_KEY is not set. PDF/image extraction will fail. "
             "Add it in Railway Variables (or .env locally). Get a free key at https://aistudio.google.com/app/apikey",
         )
-    db.init_db()
+    try:
+        db.init_db()
+    except Exception as e:
+        log.error("init_db failed (non-fatal): %s", e)
     # Remove excluded students (e.g. Cici, Vivian) from offers and student_grades
     excluded_lower = [n.strip().lower() for n in EXCLUDED_STUDENT_NAMES if n]
     if excluded_lower:

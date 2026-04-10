@@ -93,7 +93,20 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_student_code ON offers(student_code)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_offer_date ON offers(offer_date)")
 
-        _normalize_existing_universities(conn)
+        try:
+            done = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='_migrations'"
+            ).fetchone()
+            if not done:
+                conn.execute("CREATE TABLE _migrations (name TEXT PRIMARY KEY)")
+            already = conn.execute(
+                "SELECT 1 FROM _migrations WHERE name='normalize_universities'"
+            ).fetchone()
+            if not already:
+                _normalize_existing_universities(conn)
+                conn.execute("INSERT INTO _migrations VALUES ('normalize_universities')")
+        except Exception:
+            pass
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS student_grades (
