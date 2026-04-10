@@ -971,6 +971,19 @@ def update_student_grades(student_code: str, body: dict = Body(...)):
     return {"student_code": student_code, "updated": True}
 
 
+@app.get("/api/admin/export-db")
+def export_database(request: Request):
+    """Download the current offers.db file. Protected by RESTORE_SECRET if set."""
+    secret = os.environ.get("RESTORE_SECRET")
+    if secret:
+        token = (request.query_params.get("token") or request.headers.get("X-Restore-Token") or "").strip()
+        if token != secret:
+            raise HTTPException(status_code=403, detail="Not allowed: missing or invalid token.")
+    if not os.path.exists(db.DB_PATH):
+        raise HTTPException(status_code=404, detail="No database file found.")
+    return FileResponse(db.DB_PATH, media_type="application/octet-stream", filename="offers.db")
+
+
 @app.post("/api/admin/restore-db")
 async def restore_database(request: Request, file: UploadFile = File(..., description="Your local offers.db file")):
     """Replace the current database with an uploaded offers.db (e.g. from your local app). Optional: set RESTORE_SECRET and send X-Restore-Token header."""
