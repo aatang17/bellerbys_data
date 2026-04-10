@@ -1,6 +1,7 @@
 """
 SQLite database for Bellerbys offer letters.
 """
+import re
 import sqlite3
 import os
 from contextlib import contextmanager
@@ -18,6 +19,32 @@ def get_db():
         conn.commit()
     finally:
         conn.close()
+
+
+def _normalize_existing_universities(conn):
+    """Migration: merge rows where university names differ only by casing/whitespace.
+    Keeps the best display name (mixed-case preferred over ALL-CAPS/all-lower)."""
+    rows = conn.execute("SELECT DISTINCT university FROM offers").fetchall()
+    groups: dict[str, list[str]] = {}
+    for (uni,) in rows:
+        key = re.sub(r"\s+", " ", (uni or "").strip()).lower()
+        if not key:
+            continue
+        groups.setdefault(key, []).append(uni)
+    for _key, variants in groups.items():
+        if len(variants) <= 1:
+            continue
+        best = variants[0]
+        for v in variants[1:]:
+            if best == best.upper() or best == best.lower():
+                if v != v.upper() and v != v.lower():
+                    best = v
+        for v in variants:
+            if v != best:
+                conn.execute(
+                    "UPDATE offers SET university = ? WHERE university = ?",
+                    (best, v),
+                )
 
 
 def init_db():
@@ -64,6 +91,8 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_student ON offers(student_name)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_student_code ON offers(student_code)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_offers_offer_date ON offers(offer_date)")
+
+        _normalize_existing_universities(conn)
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS student_grades (

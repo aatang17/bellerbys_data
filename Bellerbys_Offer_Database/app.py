@@ -262,7 +262,7 @@ async def upload_offer(
             (
                 student_code_from_file or None,
                 name or None,
-                data.get("university") or "",
+                _normalize_university(data.get("university")),
                 data.get("provider_code"),
                 data.get("course_name"),
                 data.get("course_code"),
@@ -299,6 +299,26 @@ def _normalize_name(s: str) -> str:
     """Normalize for matching: lower, strip, collapse internal whitespace to single space."""
     t = (s or "").strip().lower()
     return re.sub(r"\s+", " ", t) if t else ""
+
+
+def _normalize_university(s: str) -> str:
+    """Clean whitespace and return a non-empty university name."""
+    t = re.sub(r"\s+", " ", (s or "").strip())
+    return t if t else "Unknown"
+
+
+def _uni_key(s: str) -> str:
+    """Case-insensitive grouping key for university names."""
+    return _normalize_university(s).lower()
+
+
+def _pick_best_display(existing: str, candidate: str) -> str:
+    """Between two spellings of the same university, prefer mixed-case over ALL-CAPS / all-lower."""
+    if existing != existing.upper() and existing != existing.lower():
+        return existing
+    if candidate != candidate.upper() and candidate != candidate.lower():
+        return candidate
+    return existing
 
 
 def _merge_offers(code_offers: list, name_offers: list, key_university: str = "university", key_course: str = "course_name") -> list:
@@ -534,7 +554,8 @@ def get_analytics():
             "aes_overall, required_scores_json FROM offers ORDER BY offer_date DESC"
         ).fetchall()
 
-    university_counts: dict[str, int] = {}
+    uni_counts: dict[str, int] = {}          # keyed by _uni_key
+    uni_display: dict[str, str] = {}         # _uni_key -> best display name
     offer_type_counts: dict[str, int] = {"Conditional": 0, "Unconditional": 0, "Unknown": 0}
     aes_score_counts: dict[str, int] = {}
     qs_uni_map: dict[str, int] = {}
@@ -546,17 +567,18 @@ def get_analytics():
     for r in rows:
         code = (r[0] or "").strip() or None
         name = _normalize_name(r[1])
-        uni = (r[2] or "Unknown").strip()
+        uni_raw = _normalize_university(r[2])
+        uk = _uni_key(uni_raw)
+        uni_display[uk] = _pick_best_display(uni_display.get(uk, uni_raw), uni_raw)
         otype = (r[3] or "").strip()
         aes = (r[5] or "").strip()
 
-        # Attribute this offer to student_code(s): by code if set, else by name
         codes_this_offer: list[str] = [code] if code else (norm_to_codes.get(name) or [])
         for c in codes_this_offer:
             student_codes_with_offers.add(c)
             code_offer_counts[c] = code_offer_counts.get(c, 0) + 1
 
-        university_counts[uni] = university_counts.get(uni, 0) + 1
+        uni_counts[uk] = uni_counts.get(uk, 0) + 1
         if otype in offer_type_counts:
             offer_type_counts[otype] += 1
         else:
@@ -564,11 +586,11 @@ def get_analytics():
         if aes:
             aes_score_counts[_norm_aes(aes)] = aes_score_counts.get(_norm_aes(aes), 0) + 1
 
-        rank = get_qs_rank(uni)
+        rank = get_qs_rank(uni_raw)
         if rank is not None:
             qs_top100_offers_count += 1
-            if uni not in qs_uni_map or qs_uni_map[uni] > rank:
-                qs_uni_map[uni] = rank
+            if uk not in qs_uni_map or qs_uni_map[uk] > rank:
+                qs_uni_map[uk] = rank
             for c in codes_this_offer:
                 students_with_top100_codes.add(c)
 
@@ -595,6 +617,7 @@ def get_analytics():
             return float(s)
         except ValueError:
             return 999
+    university_counts = {uni_display[k]: v for k, v in uni_counts.items()}
     top_unis = sorted(university_counts.items(), key=lambda x: -x[1])[:10]
     aes_dist = sorted(aes_score_counts.items(), key=_sort_key)
 
@@ -611,8 +634,8 @@ def get_analytics():
     )
 
     qs_top100_offers = [
-        {"university": uni, "rank": rank}
-        for uni, rank in sorted(qs_uni_map.items(), key=lambda x: x[1])
+        {"university": uni_display.get(uk, uk), "rank": rank}
+        for uk, rank in sorted(qs_uni_map.items(), key=lambda x: x[1])
     ]
     students_top100_count = sum(
         1 for students in by_pathway.values() for s in students
@@ -661,17 +684,19 @@ def get_universities():
         rows = conn.execute(
             "SELECT university, student_code, student_name FROM offers ORDER BY university, student_name"
         ).fetchall()
-    uni_to_students: dict[str, list[dict[str, str]]] = {}
+    uni_to_students: dict[str, list[dict[str, str]]] = {}   # keyed by _uni_key
     uni_seen: dict[str, set[str]] = {}
-    for uni, code, name in rows:
-        uni = (uni or "").strip() or "Unknown"
+    uni_display: dict[str, str] = {}
+    for raw_uni, code, name in rows:
+        uni_raw = _normalize_university(raw_uni)
+        uk = _uni_key(uni_raw)
+        uni_display[uk] = _pick_best_display(uni_display.get(uk, uni_raw), uni_raw)
         code = (code or "").strip() or ""
         name = (name or "").strip() or ""
         if not code and name:
             offer_norm = _normalize_name(name)
             codes = norm_to_codes.get(offer_norm, [])
             if not codes and offer_norm:
-                # Match "Mulan RMIT" to cohort "Mulan": cohort name as word-prefix of offer name
                 for cohort_norm, codelist in norm_to_codes.items():
                     if cohort_norm and (offer_norm == cohort_norm or offer_norm.startswith(cohort_norm + " ")):
                         codes = codelist
@@ -680,18 +705,18 @@ def get_universities():
         key = code if code else (name if name else None)
         if not key:
             continue
-        if uni not in uni_to_students:
-            uni_to_students[uni] = []
-            uni_seen[uni] = set()
-        if key not in uni_seen[uni]:
-            uni_seen[uni].add(key)
-            uni_to_students[uni].append({"student_code": code or "—", "student_name": name or "—"})
-    # Sort by QS rank (lowest first), then unranked by name
+        if uk not in uni_to_students:
+            uni_to_students[uk] = []
+            uni_seen[uk] = set()
+        if key not in uni_seen[uk]:
+            uni_seen[uk].add(key)
+            uni_to_students[uk].append({"student_code": code or "—", "student_name": name or "—"})
     out = []
-    for uni, students in uni_to_students.items():
-        rank = get_qs_rank(uni)
+    for uk, students in uni_to_students.items():
+        display = uni_display[uk]
+        rank = get_qs_rank(display)
         out.append({
-            "university": uni,
+            "university": display,
             "qs_rank": rank,
             "students": students,
         })
