@@ -74,7 +74,9 @@ def catch_all_exception_handler(request, exc):
 
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = Path(os.environ.get("BELLERBYS_UPLOAD_DIR", os.path.join(BASE, "uploads")))
+_DATA_DIR = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") or ""
+_default_upload = os.path.join(_DATA_DIR, "uploads") if _DATA_DIR else os.path.join(BASE, "uploads")
+UPLOAD_DIR = Path(os.environ.get("BELLERBYS_UPLOAD_DIR", _default_upload))
 try:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 except OSError as e:

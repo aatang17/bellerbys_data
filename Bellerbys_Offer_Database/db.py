@@ -7,7 +7,8 @@ import os
 from contextlib import contextmanager
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get("BELLERBYS_DB", os.path.join(BASE, "offers.db"))
+_VOLUME = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") or ""
+DB_PATH = os.environ.get("BELLERBYS_DB", os.path.join(_VOLUME, "offers.db") if _VOLUME else os.path.join(BASE, "offers.db"))
 
 
 @contextmanager
