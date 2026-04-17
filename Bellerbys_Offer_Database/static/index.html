@@ -1014,6 +1014,63 @@
       return cNum >= rNum;
     }
 
+    /** Offer text looks like an IELTS band (not a % requirement). */
+    function isIeltsBandRequirement(req) {
+      if (req === null || req === undefined || req === '') return false;
+      const s = String(req).trim().toLowerCase();
+      if (s.includes('ielts')) return true;
+      if (s.includes('%')) return false;
+      const n = parseFloat(s.replace(/^ielts\s*/, ''));
+      return !Number.isNaN(n) && n > 0 && n <= 9.5;
+    }
+
+    /** Student grade looks like a course percentage (e.g. AES %), not an IELTS band. */
+    function isPercentStyleGrade(cur) {
+      if (cur === null || cur === undefined || String(cur).trim() === '') return false;
+      const s = String(cur).trim();
+      if (s.toLowerCase().includes('ielts')) return false;
+      if (s.includes('%')) return true;
+      const n = parseFloat(s.replace(/%/g, ''));
+      return !Number.isNaN(n) && n > 9.5;
+    }
+
+    /** Student grade looks like an IELTS band (entered explicitly or small number without %). */
+    function isIeltsBandGrade(cur) {
+      if (cur === null || cur === undefined || String(cur).trim() === '') return false;
+      const s = String(cur).trim();
+      const low = s.toLowerCase();
+      if (low.includes('ielts')) return true;
+      if (s.includes('%')) return false;
+      const n = parseFloat(s.replace(/^ielts\s*/i, ''));
+      return !Number.isNaN(n) && n > 0 && n <= 9.5;
+    }
+
+    /**
+     * Gap Analysis: never treat IELTS (offer) as comparable to AES % (grades).
+     * Compare IELTS↔IELTS and %↔% only.
+     */
+    function gapAnalysisRowStatus(current, required) {
+      if (!required || required === '—') return { met: null, kind: 'no_req' };
+      const cur = current;
+      const reqIelts = isIeltsBandRequirement(required);
+      const curPct = isPercentStyleGrade(cur);
+      const curIelts = isIeltsBandGrade(cur);
+
+      if (reqIelts && curPct && !curIelts) {
+        return { met: null, kind: 'ielts_vs_aes', note: 'IELTS ≠ AES %' };
+      }
+      if (reqIelts && curIelts) {
+        const c = parseFloat(String(cur).replace(/^ielts\s*/i, '').replace(/%/g, '').trim());
+        const r = parseFloat(String(required).replace(/^ielts\s*/i, '').replace(/%/g, '').trim());
+        if (Number.isNaN(c) || Number.isNaN(r)) return { met: null, kind: 'parse' };
+        return { met: c >= r, kind: 'ielts' };
+      }
+      if (!reqIelts && curIelts) {
+        return { met: null, kind: 'mixed', note: 'Band vs %' };
+      }
+      return { met: progressMet(cur, required), kind: 'percent' };
+    }
+
     const PATHWAY_BADGE = {
       'Business Mgmt': 'bg-amber-50 text-amber-700 ring-amber-600/20',
       'Media':         'bg-sky-50 text-sky-700 ring-sky-600/20',
@@ -1517,21 +1574,50 @@
           const rows = subjects.map(subj => {
             const req = scores[subj] || '';
             const cur = grades[subj] || '';
-            const met = progressMet(cur, req);
-            if (met !== null) { totalChecked++; if (met) metCount++; }
-            const icon = met === true ? '<span class="text-emerald-500">&#10003;</span>' : met === false ? '<span class="text-amber-500">&#9675;</span>' : '<span class="text-slate-300">—</span>';
-            return `<tr><td class="py-0.5 pr-3 text-slate-600 text-xs">${esc(SUBJ_SHORT[subj] || subj)}</td><td class="py-0.5 pr-3 text-xs font-medium">${cur ? esc(fmtScore(cur)) : '—'}</td><td class="py-0.5 pr-3 text-xs text-slate-500">${req ? esc(fmtScore(req)) : '—'}</td><td class="py-0.5 text-xs">${icon}</td></tr>`;
+            const g = gapAnalysisRowStatus(cur, req);
+            const met = g.met;
+            if (g.kind !== 'ielts_vs_aes' && g.kind !== 'mixed' && met !== null) {
+              totalChecked++;
+              if (met) metCount++;
+            }
+            let statusHtml;
+            if (g.kind === 'ielts_vs_aes') {
+              statusHtml = '<span class="text-[10px] text-slate-500 leading-tight" title="Universities often require IELTS for English; your AES mark is a course % — they are not the same scale.">IELTS ≠ AES %</span>';
+            } else if (g.kind === 'mixed') {
+              statusHtml = '<span class="text-[10px] text-slate-500" title="Requirement and current grade use different score types.">—</span>';
+            } else if (met === true) {
+              statusHtml = '<span class="text-emerald-500">&#10003;</span>';
+            } else if (met === false) {
+              statusHtml = '<span class="text-amber-500">&#9675;</span>';
+            } else {
+              statusHtml = '<span class="text-slate-300">—</span>';
+            }
+            const yoursLabel = (g.kind === 'ielts_vs_aes' && cur)
+              ? `${esc(fmtScore(cur))} <span class="text-[10px] text-slate-400 font-normal">(course %)</span>`
+              : (cur ? esc(fmtScore(cur)) : '—');
+            const reqLabel = req
+              ? (isIeltsBandRequirement(req)
+                ? `${esc(fmtScore(req))} <span class="text-[10px] text-slate-400 font-normal">(IELTS)</span>`
+                : esc(fmtScore(req)))
+              : '—';
+            return `<tr><td class="py-0.5 pr-3 text-slate-600 text-xs">${esc(SUBJ_SHORT[subj] || subj)}</td><td class="py-0.5 pr-3 text-xs font-medium">${yoursLabel}</td><td class="py-0.5 pr-3 text-xs text-slate-500">${reqLabel}</td><td class="py-0.5 text-xs align-top">${statusHtml}</td></tr>`;
           }).join('');
 
           const pct = totalChecked > 0 ? Math.round((metCount / totalChecked) * 100) : null;
           let statusClass = 'bg-slate-100 text-slate-500';
+          let pctLabel;
           if (pct !== null) {
+            pctLabel = `${pct}% met`;
             if (pct === 100) { statusClass = 'bg-emerald-50 text-emerald-700'; summary.met++; }
             else if (pct >= 50) { statusClass = 'bg-amber-50 text-amber-700'; summary.partial++; }
             else { statusClass = 'bg-red-50 text-red-700'; summary.notMet++; }
             summary.total++;
+          } else if (subjects.length > 0 && totalChecked === 0) {
+            pctLabel = 'IELTS vs course % — not auto-scored';
+            statusClass = 'bg-slate-100 text-slate-600';
+          } else {
+            pctLabel = 'No data';
           }
-          const pctLabel = pct !== null ? `${pct}% met` : 'No data';
 
           return `<div class="border border-slate-200 rounded-lg p-3 bg-white">
             <div class="flex items-center justify-between mb-2">
@@ -1539,7 +1625,15 @@
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${pctLabel}</span>
             </div>
             ${pct !== null ? `<div class="upload-progress mb-2"><div class="upload-progress-bar" style="width:${pct}%;background:${pct===100?'#10b981':pct>=50?'#f59e0b':'#ef4444'}"></div></div>` : ''}
-            <table class="w-full"><tbody>${rows}</tbody></table>
+            <table class="w-full text-xs">
+              <thead><tr>
+                <th class="text-left py-1 pr-2 font-medium text-slate-400">Subject</th>
+                <th class="text-left py-1 pr-2 font-medium text-slate-400">Yours</th>
+                <th class="text-left py-1 pr-2 font-medium text-slate-400">Required</th>
+                <th class="text-left py-1 font-medium text-slate-400">Status</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
           </div>`;
         });
 
@@ -1556,9 +1650,12 @@
         </div>`;
       }).join('');
 
-      const metPct = summary.total > 0 ? Math.round((summary.met / summary.total) * 100) : 0;
-
       let html = `
+        <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+          <strong class="text-slate-800">IELTS vs AES.</strong>
+          English offers often require an <strong>IELTS</strong> band score. Your <strong>AES</strong> column is a <strong>course percentage</strong> — it is not converted or compared to IELTS here.
+          If you enter an <strong>IELTS result</strong> (e.g. 6.5) in the relevant grade field, Gap Analysis can compare band-to-band where the offer asks for IELTS.
+        </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
           <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
             <div class="text-2xl font-bold text-slate-900">${withCond.length}</div>
