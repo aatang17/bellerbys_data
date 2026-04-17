@@ -798,6 +798,16 @@ def update_offer_student_name(offer_id: int, student_name: str = Body(..., embed
     return {"id": offer_id, "student_name": name}
 
 
+@app.delete("/api/offers/{offer_id}")
+def delete_offer(offer_id: int):
+    """Delete an offer by ID."""
+    with db.get_db() as conn:
+        cur = conn.execute("DELETE FROM offers WHERE id = ?", (offer_id,))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"No offer with id={offer_id}")
+    return {"ok": True, "deleted_id": offer_id}
+
+
 @app.get("/api/students")
 def get_students():
     """All students across pathways joined with their offers, for the Students tab."""
@@ -812,7 +822,7 @@ def get_students():
 
     with db.get_db() as conn:
         rows = conn.execute(
-            "SELECT student_code, student_name, university, course_name, course_code, offer_type, offer_date,"
+            "SELECT id, student_code, student_name, university, course_name, course_code, offer_type, offer_date,"
             " reply_deadline, subject_requirement, english_requirement,"
             " aes_overall, aes_listening, aes_reading, aes_writing, aes_speaking, required_scores_json"
             " FROM offers ORDER BY offer_date DESC"
@@ -821,29 +831,30 @@ def get_students():
     code_to_offers: dict[str, list] = {}
     name_to_offers: dict[str, list] = {}
     for r in rows:
-        code = (r[0] or "").strip() or None
-        name = _normalize_name(r[1])
+        code = (r[1] or "").strip() or None
+        name = _normalize_name(r[2])
         req_scores: dict = {}
         try:
-            if r[15]:
-                req_scores = _json.loads(r[15])
+            if r[16]:
+                req_scores = _json.loads(r[16])
         except Exception:
             pass
         offer_entry = {
-            "university":          r[2]  or "",
-            "course_name":         r[3]  or "",
-            "course_code":         r[4]  or "",
-            "offer_type":          r[5]  or "",
-            "offer_date":          r[6]  or "",
-            "subject_requirement": r[8]  or "",
-            "english_requirement": r[9]  or "",
-            "aes_overall":         r[10] or "",
-            "aes_listening":       r[11] or "",
-            "aes_reading":         r[12] or "",
-            "aes_writing":         r[13] or "",
-            "aes_speaking":        r[14] or "",
+            "id":                  r[0],
+            "university":          r[3]  or "",
+            "course_name":         r[4]  or "",
+            "course_code":         r[5]  or "",
+            "offer_type":          r[6]  or "",
+            "offer_date":          r[7]  or "",
+            "subject_requirement": r[9]  or "",
+            "english_requirement": r[10] or "",
+            "aes_overall":         r[11] or "",
+            "aes_listening":       r[12] or "",
+            "aes_reading":         r[13] or "",
+            "aes_writing":         r[14] or "",
+            "aes_speaking":        r[15] or "",
             "required_scores":     req_scores,
-            "qs_rank":             get_qs_rank(r[2] or ""),
+            "qs_rank":             get_qs_rank(r[3] or ""),
         }
         if code:
             code_to_offers.setdefault(code, []).append(offer_entry)
@@ -941,7 +952,7 @@ async def import_grades_from_excel():
                     (code, subject, value, now),
                 )
                 imported += 1
-    source = "uploaded file" if file else "configured Excel"
+    source = "configured Excel"
     return {"imported": imported, "message": f"Imported {imported} grade entries from {source}."}
 
 
