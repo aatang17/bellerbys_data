@@ -19,7 +19,7 @@ if _env_path.exists():
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -798,6 +798,23 @@ def update_offer_student_name(offer_id: int, student_name: str = Body(..., embed
     return {"id": offer_id, "student_name": name}
 
 
+@app.patch("/api/offers/{offer_id}/english")
+def update_offer_english(offer_id: int, body: dict = Body(...)):
+    """Update the AES/English requirement fields for an offer (e.g. change IELTS 6.5 to 65.0%).
+    Accepted fields: aes_overall, aes_listening, aes_reading, aes_writing, aes_speaking."""
+    allowed = {"aes_overall", "aes_listening", "aes_reading", "aes_writing", "aes_speaking"}
+    updates = {k: (str(v).strip() if v is not None else "") for k, v in body.items() if k in allowed}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid AES fields provided. Use aes_overall, aes_listening, aes_reading, aes_writing, or aes_speaking.")
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [offer_id]
+    with db.get_db() as conn:
+        cur = conn.execute(f"UPDATE offers SET {set_clause} WHERE id = ?", values)
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail=f"No offer with id={offer_id}")
+    return {"id": offer_id, "updated": updates}
+
+
 @app.delete("/api/offers/{offer_id}")
 def delete_offer(offer_id: int):
     """Delete an offer by ID."""
@@ -1043,6 +1060,17 @@ async def restore_from_backup(request: Request):
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"Could not restore from backup: {e}")
     return {"ok": True, "message": "Database restored from offers.db.bak. Refresh the page."}
+
+
+@app.get("/health")
+def health():
+    """Liveness for uptime monitors and load balancers (use GET; many tools also use HEAD)."""
+    return {"status": "ok"}
+
+
+@app.head("/health")
+def health_head():
+    return Response(status_code=200)
 
 
 @app.get("/")
